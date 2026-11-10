@@ -1,8 +1,8 @@
 # Guia de contribuição da equipe
 
-Este guia orienta Miguel, Daniel e Yaron no desenvolvimento da API Controle Financeiro. A entrega informada pela equipe é **26/11/2026**. Consulte o [escopo oficial](escopo-projeto.pdf), as [instruções dos agentes](../AGENTS.md) e o [README](../README.md).
+Este guia orienta Miguel, Daniel e Yaron no desenvolvimento da API Controle Financeiro. A entrega informada pela equipe é **26/11/2026**. Consulte o [escopo oficial](escopo-projeto.md), as [instruções dos agentes](../AGENTS.md) e o [README](../README.md).
 
-O PDF é a principal fonte dos requisitos. Issues dividem as tarefas, Projects organiza o Kanban e Milestones agrupam entregas. Se uma Issue divergir do PDF, converse com a equipe e a professora antes de implementar o ponto. O PDF permite até três pessoas, embora alguns trechos mencionem dois integrantes; confirmem essa inconsistência com a professora. As datas oficiais ficam no ambiente virtual.
+O escopo oficial é a principal fonte dos requisitos. Issues dividem as tarefas, Projects organiza o Kanban e Milestones agrupam entregas. Se uma Issue divergir do escopo oficial, converse com a equipe e a professora antes de implementar o ponto. O escopo oficial permite até três pessoas, embora alguns trechos mencionem dois integrantes; confirmem essa inconsistência com a professora. As datas oficiais ficam no ambiente virtual.
 
 ## 1. Escolher e assumir uma tarefa
 
@@ -83,9 +83,9 @@ Copy-Item .env.example .env
 
 ## 3. Trabalhar e validar a Issue
 
-Implemente somente os critérios da tarefa. Use CommonJS, as bibliotecas permitidas e a arquitetura do PDF: SQL de execução nas classes de `models/`, rotas com `express.Router()` e JWT em `middleware/`. Os scripts de criação e seed ficam em `database/`. Bibliotecas além de Express, mysql2, jsonwebtoken, express-jwt, bcrypt, dotenv e nodemon exigem aprovação prévia da professora.
+Implemente somente os critérios da tarefa. Use CommonJS, as bibliotecas permitidas e a arquitetura do escopo oficial: SQL de execução nas classes de `models/`, rotas com `express.Router()` e JWT em `middleware/`. Os scripts de criação e seed ficam em `database/`. Bibliotecas além de Express, mysql2, jsonwebtoken, express-jwt, bcrypt, dotenv e nodemon exigem aprovação prévia da professora.
 
-Informe ao Codex seu nome, o número da Issue e sua descrição. Ele deve ler `AGENTS.md`, consultar o PDF, preservar alterações locais e explicar a solução. Todos precisam conseguir explicar o código na apresentação.
+Informe ao Codex seu nome, o número da Issue e sua descrição. Ele deve ler `AGENTS.md`, consultar o escopo oficial, preservar alterações locais e explicar a solução. Todos precisam conseguir explicar o código na apresentação.
 
 Faça testes adequados à alteração. Para a configuração inicial:
 
@@ -185,4 +185,4 @@ Pare de editar e não faça commit nem push nessa branch. Informe o estado do Gi
 
 ### Quando pedir ajuda
 
-Peça ajuda quando houver dúvida sobre o PDF, dependência de outra Issue, conflito em código alheio, divergência de histórico, credencial exposta ou bloqueio de permissões. Compartilhe a mensagem de erro, sua branch e o `git status`, sem copiar segredos do `.env`.
+Peça ajuda quando houver dúvida sobre o escopo oficial, dependência de outra Issue, conflito em código alheio, divergência de histórico, credencial exposta ou bloqueio de permissões. Compartilhe a mensagem de erro, sua branch e o `git status`, sem copiar segredos do `.env`.

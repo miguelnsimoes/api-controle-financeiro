@@ -5,4 +5,4 @@ API REST para gerenciamento financeiro pessoal, desenvolvida com Node.js, Expres
 
 - [Instruções para agentes Codex](AGENTS.md)
 - [Guia de contribuição](docs/guia-contribuicao.md)
-- [Escopo oficial do projeto](docs/escopo-projeto.pdf)
+- [Escopo oficial do projeto](docs/escopo-projeto.md)
