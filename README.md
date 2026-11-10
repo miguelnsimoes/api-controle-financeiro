@@ -90,3 +90,9 @@ Os diretórios estão reservados para as próximas Issues. Os arquivos `.gitkeep
 ## Fluxo de colaboração
 
 As funcionalidades são desenvolvidas em branches `feature/*`, com Pull Request para `develop` e aprovação de outro integrante. A branch `main` contém a versão estável.
+
+## Documentação da equipe
+
+- [Instruções para agentes Codex](AGENTS.md)
+- [Guia de contribuição](docs/guia-contribuicao.md)
+- [Escopo oficial do projeto](docs/escopo-projeto.md)
