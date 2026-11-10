@@ -1,0 +1,36 @@
+
+{
+  "name": "api-controle-financeiro",
+  "version": "1.0.0",
+  "description": "API REST para gerenciamento financeiro pessoal, desenvolvida com Node.js, Express e MySQL.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/miguelnsimoes/api-controle-financeiro.git"
+  },
+  "keywords": [
+    "nodejs",
+    "express",
+    "mysql",
+    "rest-api",
+    "financeiro"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/miguelnsimoes/api-controle-financeiro/issues"
+  },
+  "homepage": "https://github.com/miguelnsimoes/api-controle-financeiro#readme",
+  "dependencies": {
+    "dotenv": "^18.0.10",
+    "express": "^5.3.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
