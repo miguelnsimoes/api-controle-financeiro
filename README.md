@@ -1,12 +1,13 @@
 # API Controle Financeiro
 
-Projeto acadêmico de uma API REST para gerenciamento financeiro pessoal. Esta etapa contém o servidor Express, o schema do banco e a conexão com MySQL, sem rotas de negócio.
+Projeto acadêmico de uma API REST para gerenciamento financeiro pessoal. Estão implementados o servidor Express, o banco MySQL e o cadastro de usuários com validação, hash de senha e criação dos dados padrão.
 
 ## Tecnologias
 
 - Node.js com CommonJS (`require` / `module.exports`).
 - Express para o servidor HTTP.
 - MySQL com o driver mysql2 para conexão com o banco de dados.
+- bcrypt para proteger as senhas com hash.
 - dotenv para carregar variáveis de ambiente.
 - nodemon para reiniciar o servidor durante o desenvolvimento.
 
@@ -69,7 +70,38 @@ npm run dev
 
 O terminal exibirá `Conexão com MySQL estabelecida.` e depois `Servidor iniciado na porta 3000` ou a porta configurada em `PORT`. O servidor HTTP inicia após a confirmação da conexão. Se a conexão falhar, o processo encerra com código 1 e informa o código do erro MySQL, sem exibir credenciais. Confira o serviço MySQL, o banco criado e as variáveis do `.env`. Para encerrar, pressione `Ctrl+C`.
 
-Não há rotas implementadas nesta etapa; uma requisição a `/` retorna HTTP 404, comportamento padrão do Express.
+A rota `/` permanece sem implementação e retorna HTTP 404. A rota de cadastro está descrita abaixo.
+
+## Cadastro de usuários
+
+Envie `POST /auth/cadastro` com `Content-Type: application/json`:
+
+```json
+{
+  "nome": "Usuário de exemplo",
+  "email": "usuario@example.com",
+  "cpf": "529.982.247-25",
+  "senha": "Exemplo123"
+}
+```
+
+Os valores acima são apenas exemplos. Nome, e-mail, CPF e senha são obrigatórios. O CPF deve ter dígitos verificadores válidos; a senha deve ter ao menos oito caracteres, com letras e números. Para respeitar o limite do bcrypt, senhas acima de 72 bytes em UTF-8 são rejeitadas, em vez de serem truncadas. Nome aceita até 120 caracteres e e-mail até 160, conforme o schema.
+
+O cadastro remove espaços nas extremidades do nome e do e-mail, converte o e-mail para minúsculas e grava o CPF somente com dígitos. A senha é armazenada como hash bcrypt com custo 10 e nunca é devolvida pela API.
+
+Um cadastro válido retorna `201` com `id`, `nome` e `email`. Dados inválidos retornam `400` com `erro` e `campos`; e-mail ou CPF duplicado retorna `409`, identificando o campo. Erros inesperados retornam `500` com mensagem genérica.
+
+Na mesma transação, são criadas nove categorias (duas de entrada e sete de saída) e a fonte/destino “Conta corrente”. Uma falha desfaz todas as inserções. O pool reserva uma conexão exclusiva para cada transação, liberando-a ao finalizar.
+
+Veja os exemplos executáveis em [testes/requisicoes.md](testes/requisicoes.md). Login e autenticação JWT pertencem às próximas Issues.
+
+## Testes
+
+```bash
+npm test
+```
+
+Os testes usam o executor nativo do Node.js, validam os dígitos do CPF e o comportamento transacional do model com falhas simuladas. Não gravam dados no MySQL. No PowerShell, se a política local bloquear `npm.ps1`, use `npm.cmd test` e `npm.cmd run dev`.
 
 ## Estrutura inicial
 
@@ -82,13 +114,19 @@ api-controle-financeiro/
 ├── middleware/
 │   └── .gitkeep
 ├── models/
-│   └── .gitkeep
+│   ├── .gitkeep
+│   └── Usuario.js
 ├── routes/
-│   └── .gitkeep
+│   ├── .gitkeep
+│   └── auth.js
 ├── utils/
-│   └── .gitkeep
+│   ├── .gitkeep
+│   └── cpf.js
 ├── testes/
-│   └── .gitkeep
+│   ├── .gitkeep
+│   ├── cpf.test.js
+│   ├── usuario.test.js
+│   └── requisicoes.md
 ├── .env.example
 ├── .gitignore
 ├── package.json
@@ -97,7 +135,7 @@ api-controle-financeiro/
 └── server.js
 ```
 
-Os diretórios estão reservados para as próximas Issues. Os arquivos `.gitkeep` permitem versionar os diretórios vazios. As futuras regras de acesso a dados serão organizadas em `models/`.
+Os arquivos `.gitkeep` preservam os diretórios iniciais. O SQL de cadastro fica em `models/Usuario.js`; `routes/auth.js` valida as entradas e monta as respostas. O middleware JWT será implementado em outra Issue.
 
 ## Fluxo de colaboração
 
