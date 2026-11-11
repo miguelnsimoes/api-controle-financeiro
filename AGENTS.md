@@ -1,4 +1,4 @@
-# Instruções para agentes Codex
+# Instruções para agentes 
 
 ## Contexto e fontes
 
