@@ -1,6 +1,6 @@
 # API Controle Financeiro
 
-Projeto acadêmico de uma API REST para gerenciamento financeiro pessoal. Estão implementados o servidor Express, o banco MySQL e o cadastro de usuários com validação, hash de senha e criação dos dados padrão.
+Projeto acadêmico de uma API REST para gerenciamento financeiro pessoal. Estão implementados o servidor Express, o banco MySQL, o cadastro de usuários com dados padrão e o login com JWT.
 
 ## Tecnologias
 
@@ -8,6 +8,7 @@ Projeto acadêmico de uma API REST para gerenciamento financeiro pessoal. Estão
 - Express para o servidor HTTP.
 - MySQL com o driver mysql2 para conexão com o banco de dados.
 - bcrypt para proteger as senhas com hash.
+- jsonwebtoken para emitir tokens de login.
 - dotenv para carregar variáveis de ambiente.
 - nodemon para reiniciar o servidor durante o desenvolvimento.
 
@@ -40,7 +41,7 @@ No Linux ou macOS:
 cp .env.example .env
 ```
 
-Ajuste os valores locais. `PORT` define a porta HTTP, com fallback para `3000` quando ausente. `DB_HOST`, `DB_USER`, `DB_PASSWORD` e `DB_NAME` configuram a conexão MySQL. Use `DB_NAME=api_financas` e informe um usuário e senha válidos do seu MySQL local. `JWT_SECRET` permanece reservado para a etapa de autenticação.
+Ajuste os valores locais. `PORT` define a porta HTTP, com fallback para `3000` quando ausente. `DB_HOST`, `DB_USER`, `DB_PASSWORD` e `DB_NAME` configuram a conexão MySQL. Use `DB_NAME=api_financas` e informe um usuário e senha válidos do seu MySQL local. Defina `JWT_SECRET` com um segredo local para assinar os tokens de login; não versione esse segredo.
 
 O arquivo de exemplo contém valores fictícios. Não versione o `.env` nem credenciais reais.
 
@@ -93,7 +94,24 @@ Um cadastro válido retorna `201` com `id`, `nome` e `email`. Dados inválidos r
 
 Na mesma transação, são criadas nove categorias (duas de entrada e sete de saída) e a fonte/destino “Conta corrente”. Uma falha desfaz todas as inserções. O pool reserva uma conexão exclusiva para cada transação, liberando-a ao finalizar.
 
-Veja os exemplos executáveis em [testes/requisicoes.md](testes/requisicoes.md). Login e autenticação JWT pertencem às próximas Issues.
+Veja os exemplos executáveis em [testes/requisicoes.md](testes/requisicoes.md).
+
+## Login
+
+Envie `POST /auth/login` com `Content-Type: application/json` e o e-mail e senha de um usuário cadastrado:
+
+```json
+{
+  "email": "usuario@example.com",
+  "senha": "Exemplo123"
+}
+```
+
+O e-mail é normalizado antes da consulta e a senha é conferida com `bcrypt.compare`. No sucesso, a resposta `200` contém `token` e `usuario` (somente `id`, `nome` e `email`). O JWT é assinado com `JWT_SECRET` e expira em uma hora; a senha e seu hash não aparecem na resposta nem no token.
+
+E-mail inexistente ou senha incorreta retornam o mesmo `401` com `erro: "E-mail ou senha inválidos."`. Campos ausentes ou com tipos incorretos retornam `400`. Falhas internas, incluindo ausência de `JWT_SECRET`, retornam `500` sem detalhes técnicos ao cliente.
+
+A Issue #5 está em andamento: a rota protegida `GET /auth/me` ainda será implementada em outro commit.
 
 ## Testes
 
@@ -101,7 +119,7 @@ Veja os exemplos executáveis em [testes/requisicoes.md](testes/requisicoes.md).
 npm test
 ```
 
-Os testes usam o executor nativo do Node.js, validam os dígitos do CPF e o comportamento transacional do model com falhas simuladas. Não gravam dados no MySQL. No PowerShell, se a política local bloquear `npm.ps1`, use `npm.cmd test` e `npm.cmd run dev`.
+Os testes usam o executor nativo do Node.js e cobrem CPF, transações de cadastro, busca por e-mail e login. Os testes HTTP de login usam bcrypt e JWT reais, com consultas ao banco simuladas, verificando respostas e expiração. Não gravam dados no MySQL. No PowerShell, se a política local bloquear `npm.ps1`, use `npm.cmd test` e `npm.cmd run dev`.
 
 ## Estrutura inicial
 
@@ -124,7 +142,9 @@ api-controle-financeiro/
 │   └── cpf.js
 ├── testes/
 │   ├── .gitkeep
+│   ├── auth-login.test.js
 │   ├── cpf.test.js
+│   ├── usuario-login.test.js
 │   ├── usuario.test.js
 │   └── requisicoes.md
 ├── .env.example

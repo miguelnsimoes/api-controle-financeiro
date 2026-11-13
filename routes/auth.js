@@ -1,5 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const Usuario = require('../models/Usuario');
 const { cpfValido } = require('../utils/cpf');
 
@@ -55,6 +56,36 @@ router.post('/cadastro', async (req, res, next) => {
         });
       }
     }
+    return next(error);
+  }
+});
+
+router.post('/login', async (req, res, next) => {
+  const { email, senha } = req.body || {};
+  const erros = {};
+
+  if (typeof email !== 'string' || !email.trim()) {
+    erros.email = 'Informe o e-mail.';
+  }
+  if (typeof senha !== 'string' || !senha) {
+    erros.senha = 'Informe a senha.';
+  }
+  if (Object.keys(erros).length > 0) {
+    return res.status(400).json({ erro: 'Dados inválidos.', campos: erros });
+  }
+
+  try {
+    const usuario = await Usuario.buscarPorEmail(email);
+    if (!usuario || !await bcrypt.compare(senha, usuario.senha_hash)) {
+      return res.status(401).json({ erro: 'E-mail ou senha inválidos.' });
+    }
+
+    const { id, nome, email: emailCadastrado } = usuario;
+    const dadosPublicos = { id, nome, email: emailCadastrado };
+    const token = jwt.sign(dadosPublicos, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    return res.status(200).json({ token, usuario: dadosPublicos });
+  } catch (error) {
     return next(error);
   }
 });
