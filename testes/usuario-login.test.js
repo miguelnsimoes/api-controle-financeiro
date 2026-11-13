@@ -42,3 +42,20 @@ test('repassa falhas do banco para quem chamou o método', async () => {
     await assert.rejects(Usuario.buscarPorEmail('usuario@example.com'), (recebido) => recebido === erro);
   });
 });
+
+test('busca por ID seleciona apenas os dados públicos usando parâmetro SQL', async () => {
+  const usuario = { id: 42, nome: 'Usuario de exemplo', email: 'usuario@example.com' };
+  await simularConsulta(async (sql, parametros) => {
+    assert.equal(sql, 'SELECT id, nome, email FROM usuarios WHERE id = ?');
+    assert.deepEqual(parametros, [42]);
+    return [[usuario]];
+  }, async () => {
+    assert.deepEqual(await Usuario.buscarPorId(42), usuario);
+  });
+});
+
+test('busca por ID retorna null quando o usuário não existe', async () => {
+  await simularConsulta(async () => [[]], async () => {
+    assert.equal(await Usuario.buscarPorId(42), null);
+  });
+});

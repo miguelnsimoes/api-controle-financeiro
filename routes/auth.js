@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const Usuario = require('../models/Usuario');
 const { cpfValido } = require('../utils/cpf');
+const protegerRota = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -85,6 +86,20 @@ router.post('/login', async (req, res, next) => {
     const token = jwt.sign(dadosPublicos, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     return res.status(200).json({ token, usuario: dadosPublicos });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get('/me', protegerRota, async (req, res, next) => {
+  try {
+    const usuario = await Usuario.buscarPorId(req.auth.id);
+    if (!usuario) {
+      return res.status(404).json({ erro: 'Usuário não encontrado.' });
+    }
+
+    const { id, nome, email } = usuario;
+    return res.status(200).json({ id, nome, email });
   } catch (error) {
     return next(error);
   }

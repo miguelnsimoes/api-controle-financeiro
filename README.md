@@ -9,6 +9,7 @@ Projeto acadêmico de uma API REST para gerenciamento financeiro pessoal. Estão
 - MySQL com o driver mysql2 para conexão com o banco de dados.
 - bcrypt para proteger as senhas com hash.
 - jsonwebtoken para emitir tokens de login.
+- express-jwt para validar tokens nas rotas protegidas.
 - dotenv para carregar variáveis de ambiente.
 - nodemon para reiniciar o servidor durante o desenvolvimento.
 
@@ -109,9 +110,19 @@ Envie `POST /auth/login` com `Content-Type: application/json` e o e-mail e senha
 
 O e-mail é normalizado antes da consulta e a senha é conferida com `bcrypt.compare`. No sucesso, a resposta `200` contém `token` e `usuario` (somente `id`, `nome` e `email`). O JWT é assinado com `JWT_SECRET` e expira em uma hora; a senha e seu hash não aparecem na resposta nem no token.
 
-E-mail inexistente ou senha incorreta retornam o mesmo `401` com `erro: "E-mail ou senha inválidos."`. Campos ausentes ou com tipos incorretos retornam `400`. Falhas internas, incluindo ausência de `JWT_SECRET`, retornam `500` sem detalhes técnicos ao cliente.
+E-mail inexistente ou senha incorreta retornam o mesmo `401` com `erro: "E-mail ou senha inválidos."`. Campos ausentes ou com tipos incorretos retornam `400`. Falhas internas retornam `500` sem detalhes técnicos ao cliente. Configure `JWT_SECRET` antes de iniciar a aplicação: o middleware de proteção exige esse segredo durante a inicialização.
 
-A Issue #5 está em andamento: a rota protegida `GET /auth/me` ainda será implementada em outro commit.
+## Perfil do usuário autenticado
+
+Envie `GET /auth/me` com o token recebido no login:
+
+```http
+Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN
+```
+
+O middleware de `middleware/auth.js`, seguindo o exemplo do roteiro, verifica a assinatura com `JWT_SECRET`, o algoritmo `HS256` e a validade do token. A rota usa `req.auth.id` para consultar o usuário no banco e retorna `200` com apenas `id`, `nome` e `email` atuais. IDs fornecidos na query não selecionam outro usuário.
+
+Token ausente, inválido ou expirado retorna `401` em JSON. Se o usuário do token não existir mais no banco, a rota retorna `404`.
 
 ## Testes
 
@@ -119,7 +130,7 @@ A Issue #5 está em andamento: a rota protegida `GET /auth/me` ainda será imple
 npm test
 ```
 
-Os testes usam o executor nativo do Node.js e cobrem CPF, transações de cadastro, busca por e-mail e login. Os testes HTTP de login usam bcrypt e JWT reais, com consultas ao banco simuladas, verificando respostas e expiração. Não gravam dados no MySQL. No PowerShell, se a política local bloquear `npm.ps1`, use `npm.cmd test` e `npm.cmd run dev`.
+Os testes usam o executor nativo do Node.js e cobrem CPF, transações de cadastro, consultas de usuário, login e perfil protegido. Os testes HTTP usam bcrypt e JWT reais, com consultas ao banco simuladas, verificando respostas, assinatura, expiração e uso do ID do token. Não gravam dados no MySQL. No PowerShell, se a política local bloquear `npm.ps1`, use `npm.cmd test` e `npm.cmd run dev`.
 
 ## Estrutura inicial
 
@@ -130,7 +141,8 @@ api-controle-financeiro/
 │   ├── connection.js
 │   └── schema.sql
 ├── middleware/
-│   └── .gitkeep
+│   ├── .gitkeep
+│   └── auth.js
 ├── models/
 │   ├── .gitkeep
 │   └── Usuario.js
@@ -143,6 +155,7 @@ api-controle-financeiro/
 ├── testes/
 │   ├── .gitkeep
 │   ├── auth-login.test.js
+│   ├── auth-perfil.test.js
 │   ├── cpf.test.js
 │   ├── usuario-login.test.js
 │   ├── usuario.test.js
@@ -155,7 +168,7 @@ api-controle-financeiro/
 └── server.js
 ```
 
-Os arquivos `.gitkeep` preservam os diretórios iniciais. O SQL de cadastro fica em `models/Usuario.js`; `routes/auth.js` valida as entradas e monta as respostas. O middleware JWT será implementado em outra Issue.
+Os arquivos `.gitkeep` preservam os diretórios iniciais. O SQL de cadastro e consulta de usuários fica em `models/Usuario.js`; `routes/auth.js` valida as entradas e monta as respostas. O middleware JWT de `middleware/auth.js` protege individualmente a rota de perfil, mantendo cadastro e login públicos.
 
 ## Fluxo de colaboração
 

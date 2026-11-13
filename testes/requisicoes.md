@@ -100,4 +100,37 @@ Esperado: `200`, com `token` JWT válido por uma hora e `usuario` contendo apena
 
 Repita com senha incorreta ou e-mail inexistente: ambos devem retornar `401` com `erro: "E-mail ou senha inválidos."`, sem token nem indicação de qual credencial falhou. Envie `{}` para conferir o retorno `400` por campos obrigatórios ausentes.
 
-A rota `GET /auth/me` permanece pendente para a próxima etapa. Não publique tokens reais em prints ou commits.
+## Perfil protegido — Issue #5, terceira etapa
+
+No PowerShell, use o resultado do login para consultar seu perfil:
+
+```powershell
+$sessao = Invoke-RestMethod -Method Post -Uri 'http://localhost:3000/auth/login' -ContentType 'application/json' -Body $login
+Invoke-RestMethod -Method Get -Uri 'http://localhost:3000/auth/me' -Headers @{ Authorization = "Bearer $($sessao.token)" }
+```
+
+No Bash, substitua o marcador pelo token retornado no login:
+
+```bash
+curl -i http://localhost:3000/auth/me \
+  -H 'Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN'
+```
+
+Esperado: `200` com somente `id`, `nome` e `email` do usuário autenticado, consultados no banco. A resposta não contém CPF, senha ou `senha_hash`.
+
+Sem token:
+
+```bash
+curl -i http://localhost:3000/auth/me
+```
+
+Com token inválido:
+
+```bash
+curl -i http://localhost:3000/auth/me \
+  -H 'Authorization: Bearer token-invalido'
+```
+
+Ambos devem retornar `401` em JSON com `erro: "Token ausente, inválido ou expirado."`. Um token expirado deve produzir a mesma resposta. `npm test` cobre esses cenários e a rejeição de assinaturas e algoritmos incorretos, sem precisar aguardar uma hora.
+
+Também consulte `/auth/me?id=999` com um token válido: o perfil continua sendo o dono do token. Caso o usuário do token não exista mais no banco, o retorno é `404`.
