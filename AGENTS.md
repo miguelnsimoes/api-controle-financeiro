@@ -36,6 +36,18 @@ Aplique estes requisitos quando trabalhar nas Issues correspondentes, sem anteci
 - A entrega final prevê schema, seed, documentação e testes HTTP de todas as rotas em `testes/`. Esses artefatos devem ser implementados nas respectivas Issues.
 - IA é apoio: todos os integrantes precisam explicar o código entregue. Não copie artefatos de outros projetos.
 
+## Escolha de tarefas e acompanhamento do Kanban
+
+- As tarefas oficiais estão nas [Issues do GitHub](https://github.com/miguelnsimoes/api-controle-financeiro/issues), e seus estados são acompanhados no GitHub Projects (Kanban). Consulte o estado atual desses serviços; a branch local não informa sozinha se uma Issue está disponível.
+- Identifique qual integrante está trabalhando e sua conta no GitHub. Se ele indicar uma Issue específica, siga essa escolha e confira responsável, dependências e estado antes de começar.
+- Quando o integrante pedir para escolher ou começar a próxima tarefa sem indicar uma Issue, consulte as Issues abertas na coluna **Todo**. Priorize as atribuídas a esse integrante; na ausência delas, escolha uma sem responsável, considerando dependências concluídas, prioridade e Milestone. Se houver empate, use o menor número da Issue disponível.
+- Leia a descrição completa, os critérios de aceitação e o nome da branch antes de assumir a tarefa. Não assuma uma Issue de outro integrante, já em andamento ou com dependências pendentes. Se não houver tarefa disponível, informe o motivo em vez de iniciar outra por suposição.
+- Informe qual Issue foi selecionada e por quê. Atribua-a à conta do integrante em **Assignees** e mova para **In Progress** ao iniciar o trabalho. Antes de implementar, confira novamente que a atribuição e o estado foram registrados e que outro integrante não assumiu a mesma tarefa.
+- Ajude a manter o Kanban atualizado durante todo o trabalho: **Todo** antes de iniciar; **In Progress** durante a implementação; **In Review** depois que o PR estiver aberto; **Done** somente depois do merge e da validação em `develop`. Commit e push, isoladamente, não significam conclusão da Issue.
+- Use as ferramentas autenticadas disponíveis para consultar, atribuir e atualizar a Issue e o item correspondente no Project. Se faltar acesso ou permissão, informe a limitação e oriente o integrante a fazer a atualização manualmente; não afirme ter alterado o GitHub sem verificar o resultado.
+- Ao concluir uma etapa, informe a Issue, o responsável, o estado atual no Kanban e o próximo passo. Não abra PR, execute commit, push ou merge sem a autorização explícita já exigida neste arquivo.
+- Manter o Kanban significa registrar o andamento no GitHub Projects. Isso é separado do versionamento do código em commits Git; um não substitui o outro.
+
 ## Git e revisão
 
 - `main` é protegida e contém a versão estável; `develop` é protegida e integra funcionalidades. Nunca desenvolva diretamente nessas branches.
@@ -47,7 +59,7 @@ Aplique estes requisitos quando trabalhar nas Issues correspondentes, sem anteci
 
 ## Procedimento de trabalho
 
-1. Antes de implementar, identifique o integrante e a Issue; use o contexto da conversa e pergunte somente o que estiver faltando. Para tarefas de documentação sem Issue informada, registre essa ausência e não invente um número.
+1. Antes de implementar, identifique o integrante e a Issue; use o contexto da conversa e pergunte somente o que estiver faltando. Para escolher a próxima tarefa, siga a seção de seleção de Issues e Kanban acima. Para uma tarefa de documentação solicitada diretamente sem Issue informada, registre essa ausência e não invente um número.
 2. Leia o escopo oficial e a Issue e delimite os arquivos e critérios envolvidos. Inspecione a estrutura, `package.json`, dependências e instruções locais.
 3. Confira `git status`, `git branch --show-current` e as branches disponíveis. Examine a base da branch; não afirme origem histórica sem evidência.
 4. Explique como atualizar `develop` antes de criar a branch: com árvore limpa, `git switch develop` e `git pull --ff-only origin develop`. Depois, `git switch -c NOME_DA_ISSUE`. Se a branch já existe, inspecione-a antes de reutilizar. Não troque branches carregando alterações sem avaliar o impacto.

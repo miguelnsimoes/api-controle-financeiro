@@ -7,7 +7,7 @@ O escopo oficial é a principal fonte dos requisitos. Issues dividem as tarefas,
 ## 1. Escolher e assumir uma tarefa
 
 1. Entre no [repositório](https://github.com/miguelnsimoes/api-controle-financeiro).
-2. Abra **Issues** e procure uma tarefa disponível, sem responsável ou combinada com a equipe.
+2. Abra a aba [Issues](https://github.com/miguelnsimoes/api-controle-financeiro/issues) para consultar as tarefas e o **Projects** associado ao repositório para identificar quais estão em **Todo**. Uma Issue aberta não está necessariamente disponível para começar.
 3. Leia toda a descrição, os critérios de aceitação, as dependências, o nome sugerido da branch e a Milestone, quando indicada.
 4. Abra **Projects** para visualizar o quadro associado ao repositório. Se não conseguir acessá-lo, peça o link ou as permissões a outro integrante.
 5. Em **Assignees**, atribua a Issue a você. Confirme com a equipe antes de assumir algo já atribuído.
@@ -21,6 +21,42 @@ O escopo oficial é a principal fonte dos requisitos. Issues dividem as tarefas,
 | Done | Alteração integrada e validada em `develop`. |
 
 Se essas colunas não estiverem configuradas, combinem os estados equivalentes. Não duplique uma tarefa que outro integrante já está fazendo.
+
+### Como o agente de IA deve escolher a próxima Issue
+
+O agente de Miguel, Daniel ou Yaron deve consultar as Issues e o Kanban do GitHub antes de iniciar uma tarefa. Não basta deduzir a próxima atividade pelo número da última Issue implementada.
+
+Se você indicar uma Issue específica, o agente deve conferir essa Issue e respeitar sua escolha. Se pedir para ele escolher a próxima tarefa, o procedimento é:
+
+1. Identificar seu nome e a conta GitHub que deve receber a atribuição.
+2. Consultar as Issues abertas que estejam em **Todo** no Project.
+3. Priorizar uma tarefa atribuída a você. Se não houver, selecionar uma sem responsável, com as dependências já concluídas, respeitando a prioridade e a Milestone do quadro. Em caso de empate, usar a de menor número.
+4. Ler a descrição, os critérios de aceitação e a branch sugerida. Uma tarefa com dependência pendente ou atribuída a outro integrante não deve ser assumida automaticamente.
+5. Informar a Issue escolhida e o motivo, atribuí-la à sua conta em **Assignees** e mover seu item para **In Progress** quando o trabalho começar.
+6. Conferir novamente a atribuição e o status antes de implementar, para evitar que dois integrantes assumam a mesma tarefa ao mesmo tempo.
+
+Se nenhuma tarefa estiver disponível, o agente deve informar o impedimento. Se faltar acesso ao Project, à Issue ou às ferramentas de atualização, deve orientar o integrante a consultar ou atualizar o GitHub manualmente e informar o que ficou pendente. Não deve inventar o estado de uma Issue nem dizer que atualizou algo sem conferir.
+
+Por exemplo, ao receber “sou Daniel, vamos pegar a próxima tarefa”, o agente consulta o **Todo**, seleciona uma Issue disponível para Daniel, registra a atribuição e o início no Kanban e só depois prepara a branch indicada na Issue.
+
+### Como o agente deve ajudar a manter o Kanban
+
+O agente deve acompanhar o estado da Issue durante o desenvolvimento e ajudar a registrar as mudanças no GitHub Projects:
+
+| Momento | Atualização no Kanban |
+| --- | --- |
+| Issue disponível, ainda não iniciada | Manter em **Todo**. |
+| Integrante assumiu e iniciou a implementação | Registrar o responsável e mover para **In Progress**. |
+| Implementação validada, mas ainda sem PR | Manter em **In Progress** e informar que falta abrir o PR. |
+| PR aberto para `develop` | Vincular o PR à Issue e mover para **In Review**. |
+| PR em revisão ou recebendo correções | Acompanhar os ajustes e manter **In Review** enquanto aguarda aprovação e integração. |
+| Merge concluído e resultado validado em `develop` | Mover para **Done** e conferir o fechamento da Issue. |
+
+As atualizações devem refletir fatos confirmados. Terminar um commit ou dar push não é suficiente para marcar **Done**. Em cada entrega parcial, o agente deve informar a Issue, seu responsável, o status atual e o próximo passo.
+
+Se tiver acesso autenticado às ferramentas do GitHub, o agente deve efetuar as atribuições e mudanças de status conforme esse fluxo. Sem acesso, deve indicar os passos manuais e deixar explícito o que não conseguiu atualizar. Isso não autoriza abrir PR, fazer commit, push ou merge: essas operações continuam exigindo sua autorização explícita.
+
+Aqui, “manter o Kanban” significa registrar o andamento no GitHub Projects. O histórico de código continua nos commits do Git; atualizar o quadro não cria um commit no repositório.
 
 ## 2. Preparar o ambiente e a branch
 
@@ -85,7 +121,7 @@ Copy-Item .env.example .env
 
 Implemente somente os critérios da tarefa. Use CommonJS, as bibliotecas permitidas e a arquitetura do escopo oficial: SQL de execução nas classes de `models/`, rotas com `express.Router()` e JWT em `middleware/`. Os scripts de criação e seed ficam em `database/`. Bibliotecas além de Express, mysql2, jsonwebtoken, express-jwt, bcrypt, dotenv e nodemon exigem aprovação prévia da professora.
 
-Informe ao Codex seu nome, o número da Issue e sua descrição. Ele deve ler `AGENTS.md`, consultar o escopo oficial, preservar alterações locais e explicar a solução. Todos precisam conseguir explicar o código na apresentação.
+Informe ao agente seu nome e a Issue desejada, ou peça para ele selecionar uma disponível em **Todo** conforme o fluxo acima. Ele deve consultar a descrição da Issue e o Kanban, ler `AGENTS.md`, consultar o escopo oficial, preservar alterações locais e explicar a solução. Todos precisam conseguir explicar o código na apresentação.
 
 Faça testes adequados à alteração. Para a configuração inicial:
 
