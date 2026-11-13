@@ -1,4 +1,4 @@
-# Requisições da Issue #4
+# Requisições da API
 
 Inicie o MySQL e o servidor com `npm.cmd run dev` no PowerShell (ou `npm run dev` em outros terminais). Use a porta definida no `.env`; os exemplos consideram `3000`.
 
@@ -76,3 +76,61 @@ Esperado: `400`, com `erro: "JSON inválido."`.
 `npm test` cobre falhas simuladas nas inserções de usuário, categorias e fonte/destino, exigindo rollback e liberação da conexão. A implementação também foi validada no MySQL com falhas controladas após inserções parciais e com cadastros HTTP concorrentes. Os registros exclusivos dessa validação foram removidos ao final.
 
 Não altere tabelas, restrições ou dados de colegas para simular falhas. Para repetir a validação real com falhas induzidas, use um ambiente de teste separado. Não há rota para consultar ou excluir usuários nesta Issue.
+
+## Login — Issue #5, segunda etapa
+
+Após cadastrar o usuário do exemplo, configure `JWT_SECRET` no `.env` e reinicie o servidor se necessário.
+
+No Bash:
+
+```bash
+curl -i -X POST http://localhost:3000/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":" USUARIO@EXAMPLE.COM ","senha":"Exemplo123"}'
+```
+
+No PowerShell:
+
+```powershell
+$login = @{ email = ' USUARIO@EXAMPLE.COM '; senha = 'Exemplo123' } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri 'http://localhost:3000/auth/login' -ContentType 'application/json' -Body $login
+```
+
+Esperado: `200`, com `token` JWT válido por uma hora e `usuario` contendo apenas `id`, `nome` e `email`.
+
+Repita com senha incorreta ou e-mail inexistente: ambos devem retornar `401` com `erro: "E-mail ou senha inválidos."`, sem token nem indicação de qual credencial falhou. Envie `{}` para conferir o retorno `400` por campos obrigatórios ausentes.
+
+## Perfil protegido — Issue #5, terceira etapa
+
+No PowerShell, use o resultado do login para consultar seu perfil:
+
+```powershell
+$sessao = Invoke-RestMethod -Method Post -Uri 'http://localhost:3000/auth/login' -ContentType 'application/json' -Body $login
+Invoke-RestMethod -Method Get -Uri 'http://localhost:3000/auth/me' -Headers @{ Authorization = "Bearer $($sessao.token)" }
+```
+
+No Bash, substitua o marcador pelo token retornado no login:
+
+```bash
+curl -i http://localhost:3000/auth/me \
+  -H 'Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN'
+```
+
+Esperado: `200` com somente `id`, `nome` e `email` do usuário autenticado, consultados no banco. A resposta não contém CPF, senha ou `senha_hash`.
+
+Sem token:
+
+```bash
+curl -i http://localhost:3000/auth/me
+```
+
+Com token inválido:
+
+```bash
+curl -i http://localhost:3000/auth/me \
+  -H 'Authorization: Bearer token-invalido'
+```
+
+Ambos devem retornar `401` em JSON com `erro: "Token ausente, inválido ou expirado."`. Um token expirado deve produzir a mesma resposta. `npm test` cobre esses cenários e a rejeição de assinaturas e algoritmos incorretos, sem precisar aguardar uma hora.
+
+Também consulte `/auth/me?id=999` com um token válido: o perfil continua sendo o dono do token. Caso o usuário do token não exista mais no banco, o retorno é `404`.

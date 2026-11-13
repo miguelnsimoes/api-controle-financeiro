@@ -13,6 +13,25 @@ const CATEGORIAS_PADRAO = [
 ];
 
 class Usuario {
+  async buscarPorId(id) {
+    const [usuarios] = await pool.promise().execute(
+      'SELECT id, nome, email FROM usuarios WHERE id = ?',
+      [id],
+    );
+
+    return usuarios[0] || null;
+  }
+
+  async buscarPorEmail(email) {
+    const emailNormalizado = email.trim().toLowerCase();
+    const [usuarios] = await pool.promise().execute(
+      'SELECT id, nome, email, senha_hash FROM usuarios WHERE email = ?',
+      [emailNormalizado],
+    );
+
+    return usuarios[0] || null;
+  }
+
   async cadastrar({ nome, email, cpf, senhaHash }) {
     const connection = await pool.promise().getConnection();
 

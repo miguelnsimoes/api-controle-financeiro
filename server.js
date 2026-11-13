@@ -10,6 +10,9 @@ app.use(express.json());
 app.use('/auth', require('./routes/auth'));
 
 app.use((error, req, res, next) => {
+  if (error.name === 'UnauthorizedError') {
+    return res.status(401).json({ erro: 'Token ausente, inválido ou expirado.' });
+  }
   if (error.type === 'entity.parse.failed') {
     return res.status(400).json({ erro: 'JSON inválido.' });
   }
