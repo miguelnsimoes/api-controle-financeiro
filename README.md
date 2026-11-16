@@ -124,13 +124,31 @@ O middleware de `middleware/auth.js`, seguindo o exemplo do roteiro, verifica a 
 
 Token ausente, inválido ou expirado retorna `401` em JSON. Se o usuário do token não existir mais no banco, a rota retorna `404`.
 
+## Proteção dos recursos financeiros — Issue #6 em andamento
+
+Os caminhos `/categorias`, `/fontes-destinos`, `/lancamentos` e `/relatorios` passam pelo middleware JWT no `server.js`, em todos os métodos HTTP. Sem token válido, retornam `401` em JSON. Cadastro e login continuam públicos, e `/auth/me` mantém sua proteção individual.
+
+Os CRUDs financeiros ainda não foram implementados. Portanto, apresentar um token válido nesses caminhos retorna `404` com `erro: "Rota não encontrada."`. A proteção de um caminho não significa que o recurso já existe ou que o isolamento de seus registros esteja concluído.
+
+Nas Issues dos CRUDs, os respectivos Routers devem ser registrados **depois da proteção JWT e antes do tratador de 404**. Para concluir a Issue #6, será necessário aplicar e testar estas regras:
+
+- Obter o proprietário de `req.auth.id`, ignorando IDs de usuário enviados pelo cliente.
+- Filtrar listagens por `usuario_id` e consultas de registros por `id` e `usuario_id` juntos, com SQL parametrizado nas classes de `models/`.
+- Aplicar o filtro de proprietário também em alterações e exclusões, retornando `404` para registros inexistentes ou de outro usuário.
+- Antes de criar ou editar um lançamento, confirmar que a categoria e a fonte/destino pertencem ao mesmo usuário autenticado.
+- Testar as operações com dois usuários distintos, garantindo que nenhum consulte, altere ou exclua registros do outro.
+
+Esses pontos dependem das Issues #7 (categorias), #8 (fontes/destinos) e #9 (lançamentos). A Issue #6 deve permanecer em andamento até a implementação e validação do isolamento nesses recursos.
+
 ## Testes
 
 ```bash
 npm test
 ```
 
-Os testes usam o executor nativo do Node.js e cobrem CPF, transações de cadastro, consultas de usuário, login e perfil protegido. Os testes HTTP usam bcrypt e JWT reais, com consultas ao banco simuladas, verificando respostas, assinatura, expiração e uso do ID do token. Não gravam dados no MySQL. No PowerShell, se a política local bloquear `npm.ps1`, use `npm.cmd test` e `npm.cmd run dev`.
+Os testes usam o executor nativo do Node.js e cobrem CPF, transações de cadastro, consultas de usuário, login e perfil protegido. Os testes HTTP usam bcrypt e JWT reais, com consultas ao banco simuladas, verificando respostas, assinatura, expiração e uso do ID do token. `auth-recursos.test.js` testa a aplicação exportada pelo próprio `server.js`, incluindo proteção dos caminhos financeiros, acesso público a cadastro/login e erros JSON. Não gravam dados no MySQL nem demonstram isolamento de CRUDs ainda inexistentes. No PowerShell, se a política local bloquear `npm.ps1`, use `npm.cmd test` e `npm.cmd run dev`.
+
+Ao executar `node server.js` ou os scripts npm, a aplicação testa a conexão MySQL e inicia o servidor normalmente. Ao importar `server.js` nos testes, `require.main === module` é falso: o arquivo apenas exporta a aplicação Express, permitindo testá-la sem iniciar outra conexão com o banco.
 
 ## Estrutura inicial
 
@@ -156,6 +174,7 @@ api-controle-financeiro/
 │   ├── .gitkeep
 │   ├── auth-login.test.js
 │   ├── auth-perfil.test.js
+│   ├── auth-recursos.test.js
 │   ├── cpf.test.js
 │   ├── usuario-login.test.js
 │   ├── usuario.test.js

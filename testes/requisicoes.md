@@ -134,3 +134,39 @@ curl -i http://localhost:3000/auth/me \
 Ambos devem retornar `401` em JSON com `erro: "Token ausente, inválido ou expirado."`. Um token expirado deve produzir a mesma resposta. `npm test` cobre esses cenários e a rejeição de assinaturas e algoritmos incorretos, sem precisar aguardar uma hora.
 
 Também consulte `/auth/me?id=999` com um token válido: o perfil continua sendo o dono do token. Caso o usuário do token não exista mais no banco, o retorno é `404`.
+
+## Proteção dos caminhos financeiros — Issue #6, parte independente dos CRUDs
+
+Sem token, estas requisições devem retornar `401` em JSON, mesmo antes da implementação dos recursos:
+
+```bash
+curl -i http://localhost:3000/categorias
+curl -i -X POST http://localhost:3000/fontes-destinos
+curl -i -X PUT http://localhost:3000/lancamentos/1
+curl -i -X DELETE http://localhost:3000/categorias/1
+curl -i http://localhost:3000/relatorios/categorias
+```
+
+Repita com `-H 'Authorization: Bearer token-invalido'`: o retorno continua sendo `401` com `erro: "Token ausente, inválido ou expirado."`.
+
+Com um token válido do login:
+
+```bash
+curl -i http://localhost:3000/categorias \
+  -H 'Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN'
+```
+
+No estado atual, o resultado é `404` com `erro: "Rota não encontrada."`, porque o CRUD não existe. Esse resultado não é um teste de acesso a uma categoria de outro usuário.
+
+`npm test` verifica as barreiras JWT nos métodos GET, POST, PUT e DELETE, os erros JSON da aplicação e o perfil de dois usuários simulados. Não cria registros nem implementa endpoints financeiros de teste em produção.
+
+### Verificações pendentes para concluir a Issue #6
+
+Após implementar os CRUDs nas respectivas Issues, criar dois usuários fictícios em um ambiente de teste e validar que:
+
+- Cada listagem apresenta apenas os registros do proprietário autenticado.
+- IDs de recursos do outro usuário não permitem consulta, alteração ou exclusão e resultam em `404`.
+- `usuario_id` no corpo ou na query não substitui `req.auth.id`.
+- Um lançamento rejeita categoria ou fonte/destino do outro usuário com `404`, sem gravar dados parciais.
+
+Até essas verificações serem possíveis e passarem, a Issue #6 permanece em andamento.
