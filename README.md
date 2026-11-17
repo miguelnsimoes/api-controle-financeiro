@@ -128,7 +128,7 @@ Token ausente, inválido ou expirado retorna `401` em JSON. Se o usuário do tok
 
 Os caminhos `/categorias`, `/fontes-destinos`, `/lancamentos` e `/relatorios` passam pelo middleware JWT no `server.js`, em todos os métodos HTTP. Sem token válido, retornam `401` em JSON. Cadastro e login continuam públicos, e `/auth/me` mantém sua proteção individual.
 
-Já existem a listagem `GET /categorias` e a criação `POST /categorias`, descritas abaixo. As operações de atualização e exclusão de categorias e os demais recursos financeiros ainda não foram implementados. Rotas inexistentes retornam `404` em JSON após a validação do JWT. A proteção de um caminho não significa que todas as operações desse recurso existam ou que seu isolamento esteja concluído.
+Já existem a listagem `GET /categorias`, a criação `POST /categorias` e a atualização `PUT /categorias/:id`, descritas abaixo. A exclusão de categorias e os demais recursos financeiros ainda não foram implementados. Rotas inexistentes retornam `404` em JSON após a validação do JWT. A proteção de um caminho não significa que todas as operações desse recurso existam ou que seu isolamento esteja concluído.
 
 Nas Issues dos CRUDs, os respectivos Routers devem ser registrados **depois da proteção JWT e antes do tratador de 404**. Para concluir a Issue #6, será necessário aplicar e testar estas regras:
 
@@ -163,7 +163,13 @@ Nome é obrigatório e tem espaços das extremidades removidos. Tipo deve ser `e
 
 O proprietário é obtido de `req.auth.id`, ignorando IDs enviados no corpo. O MySQL impede nome repetido para o mesmo usuário e tipo, e a API responde `409` com mensagem em `campos.nome`. O mesmo nome pode existir para outro usuário ou para outro tipo.
 
-Nesta etapa, listagem e criação estão disponíveis. `PUT` e `DELETE` serão implementados nas próximas etapas da Issue #7.
+## Atualização de categorias — Issue #7 em andamento
+
+Envie `PUT /categorias/:id` com JWT válido e um JSON contendo `nome` e `tipo`, seguindo as mesmas validações da criação. O ID da categoria vem da URL e o proprietário vem exclusivamente de `req.auth.id`.
+
+O model atualiza com `WHERE id = ? AND usuario_id = ?`. No sucesso, retorna `200` com `id`, `nome` e `tipo`, inclusive ao repetir os mesmos valores. Categoria inexistente ou pertencente a outro usuário retorna `404`, sem indicar a existência de dados de terceiros. Dados ou identificador inválidos retornam `400`, e nome duplicado para o mesmo usuário e tipo retorna `409`.
+
+Listagem, criação e atualização estão disponíveis. A exclusão (`DELETE`) será implementada na próxima etapa da Issue #7.
 
 ## Testes
 

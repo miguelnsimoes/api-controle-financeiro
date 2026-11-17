@@ -74,3 +74,29 @@ test('criação repassa a violação UNIQUE para a rota tratar a duplicidade', a
       (recebido) => recebido === erro);
   });
 });
+
+test('atualização filtra ID e proprietário e usa parâmetros separados', async () => {
+  await simularConsulta(async (sql, parametros) => {
+    assert.match(sql, /UPDATE categorias SET nome = \?, tipo = \? WHERE id = \? AND usuario_id = \?/);
+    assert.deepEqual(parametros, ['Transporte', 'saida', 7, 42]);
+    return [{ affectedRows: 1 }];
+  }, async () => {
+    assert.deepEqual(await Categoria.atualizar(7, { nome: 'Transporte', tipo: 'saida', usuarioId: 42 }), {
+      id: 7, nome: 'Transporte', tipo: 'saida',
+    });
+  });
+});
+
+test('atualização sem registro pertencente ao usuário retorna null', async () => {
+  await simularConsulta(async () => [{ affectedRows: 0 }], async () => {
+    assert.equal(await Categoria.atualizar(7, { nome: 'Transporte', tipo: 'saida', usuarioId: 42 }), null);
+  });
+});
+
+test('repetir os mesmos valores de uma categoria existente continua retornando sucesso', async () => {
+  await simularConsulta(async () => [{ affectedRows: 1, changedRows: 0 }], async () => {
+    assert.deepEqual(await Categoria.atualizar(7, { nome: 'Transporte', tipo: 'saida', usuarioId: 42 }), {
+      id: 7, nome: 'Transporte', tipo: 'saida',
+    });
+  });
+});

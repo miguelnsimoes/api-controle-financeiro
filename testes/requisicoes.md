@@ -232,4 +232,35 @@ Esses comandos criam dados no banco de desenvolvimento. Esperado: `201`, com `id
 
 A integração da criação foi conferida com HTTP, JWT e MySQL reais, incluindo duplicidade e isolamento do proprietário. Todos os dados temporários dessa validação foram revertidos por rollback.
 
-As operações `PUT` e `DELETE` de categorias continuam pendentes nesta etapa.
+## Atualização de categorias — Issue #7, quarta etapa
+
+Use o ID de uma categoria que pertence ao usuário autenticado. No PowerShell, depois do login que preenche `$sessao`:
+
+```powershell
+$headers = @{ Authorization = "Bearer $($sessao.token)" }
+$categoriaId = Read-Host 'ID de uma categoria sua'
+$alteracao = @{ nome = 'Transporte atualizado'; tipo = 'saida' } | ConvertTo-Json
+Invoke-RestMethod -Method Put -Uri "http://localhost:3000/categorias/$categoriaId" -Headers $headers -ContentType 'application/json' -Body $alteracao
+```
+
+No Bash, substitua `ID_DA_CATEGORIA` pelo identificador:
+
+```bash
+curl -i -X PUT http://localhost:3000/categorias/ID_DA_CATEGORIA \
+  -H 'Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN' \
+  -H 'Content-Type: application/json' \
+  -d '{"nome":"Transporte atualizado","tipo":"saida"}'
+```
+
+Esses comandos alteram uma categoria no banco de desenvolvimento. Esperado: `200` com `id`, `nome` e `tipo` atualizados.
+
+- Repita com os mesmos valores: continua retornando `200`.
+- Use nome e tipo de outra categoria sua: `409`, preservando a categoria que tentou atualizar.
+- Use um ID inexistente ou de categoria de outro usuário: `404` com a mesma mensagem, sem alteração.
+- Envie ID inválido, nome vazio ou tipo inválido: `400`.
+- Sem JWT válido: `401`.
+- Envie `usuario_id` de outro usuário no corpo ou na query: isso não muda o proprietário usado no filtro nem permite transferir a categoria.
+
+A integração foi validada com dois usuários no MySQL, verificando que tentativas de atualização cruzada não modificam os registros. Os dados temporários foram revertidos por rollback.
+
+A operação `DELETE` continua pendente para concluir a Issue #7.

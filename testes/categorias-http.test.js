@@ -9,6 +9,7 @@ process.env.JWT_SECRET = segredoTeste;
 const app = require('../server');
 const listarOriginal = Categoria.listar;
 const criarOriginal = Categoria.criar;
+const atualizarOriginal = Categoria.atualizar;
 let server;
 let baseUrl;
 
@@ -20,6 +21,7 @@ before(async () => {
 afterEach(() => {
   Categoria.listar = listarOriginal;
   Categoria.criar = criarOriginal;
+  Categoria.atualizar = atualizarOriginal;
 });
 
 after(async () => {
@@ -164,6 +166,84 @@ test('nome duplicado para o mesmo usuário e tipo retorna 409', async () => {
 test('falha inesperada na criação retorna 500 sem detalhes do banco', async () => {
   Categoria.criar = async () => { throw new Error('Detalhe privado da inserção'); };
   assert.deepEqual(await criar({ nome: 'Lazer', tipo: 'saida' }, tokenUsuario(42)), {
+    status: 500, dados: { erro: 'Erro interno do servidor.' },
+  });
+});
+
+async function atualizar(id, dados, token) {
+  const resposta = await fetch(`${baseUrl}/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(dados),
+  });
+  return { status: resposta.status, dados: await resposta.json() };
+}
+
+test('PUT /categorias/:id exige JWT antes de atualizar', async () => {
+  Categoria.atualizar = async () => { assert.fail('Não deve atualizar sem autenticação'); };
+  for (const token of [undefined, 'token-invalido',
+    jwt.sign({ id: 42 }, segredoTeste, { expiresIn: -1 })]) {
+    assert.equal((await atualizar(7, { nome: 'Lazer', tipo: 'saida' }, token)).status, 401);
+  }
+});
+
+test('atualização rejeita ID, nome e tipo inválidos antes de consultar o model', async () => {
+  Categoria.atualizar = async () => { assert.fail('Dados inválidos não devem chegar ao model'); };
+  const casos = [
+    ['abc', { nome: 'Lazer', tipo: 'saida' }],
+    [0, { nome: 'Lazer', tipo: 'saida' }],
+    [-1, { nome: 'Lazer', tipo: 'saida' }],
+    [7, {}],
+    [7, { nome: ' ', tipo: 'saida' }],
+    [7, { nome: 42, tipo: 'saida' }],
+    [7, { nome: 'Lazer', tipo: 'invalido' }],
+  ];
+  for (const [id, dados] of casos) {
+    const resposta = await atualizar(id, dados, tokenUsuario(42));
+    assert.equal(resposta.status, 400);
+    assert.equal(resposta.dados.erro, 'Dados inválidos.');
+  }
+});
+
+test('atualiza pelo ID da URL com nome aparado e proprietário obtido do token', async () => {
+  Categoria.atualizar = async (id, dados) => {
+    assert.equal(id, 7);
+    assert.deepEqual(dados, { nome: 'Transporte', tipo: 'saida', usuarioId: 42 });
+    return { id, nome: dados.nome, tipo: dados.tipo };
+  };
+  assert.deepEqual(await atualizar('7?usuario_id=99', {
+    nome: '  Transporte  ', tipo: 'saida', usuario_id: 99, usuarioId: 99,
+  }, tokenUsuario(42)), {
+    status: 200, dados: { id: 7, nome: 'Transporte', tipo: 'saida' },
+  });
+});
+
+test('categoria inexistente ou de outro usuário retorna o mesmo 404', async () => {
+  Categoria.atualizar = async () => null;
+  for (const id of [7, 999]) {
+    assert.deepEqual(await atualizar(id, { nome: 'Lazer', tipo: 'saida' }, tokenUsuario(42)), {
+      status: 404, dados: { erro: 'Categoria não encontrada.' },
+    });
+  }
+});
+
+test('atualização que gera duplicidade retorna 409', async () => {
+  Categoria.atualizar = async () => { throw Object.assign(new Error('Duplicidade'), { code: 'ER_DUP_ENTRY' }); };
+  assert.deepEqual(await atualizar(7, { nome: 'Lazer', tipo: 'saida' }, tokenUsuario(42)), {
+    status: 409,
+    dados: {
+      erro: 'Categoria já cadastrada.',
+      campos: { nome: 'Já existe uma categoria com este nome e tipo.' },
+    },
+  });
+});
+
+test('erro inesperado na atualização retorna 500 com mensagem genérica', async () => {
+  Categoria.atualizar = async () => { throw new Error('Detalhe privado do UPDATE'); };
+  assert.deepEqual(await atualizar(7, { nome: 'Lazer', tipo: 'saida' }, tokenUsuario(42)), {
     status: 500, dados: { erro: 'Erro interno do servidor.' },
   });
 });
