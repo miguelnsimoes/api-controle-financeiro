@@ -202,4 +202,34 @@ Esperado: `200`, com um array de categorias contendo `id`, `nome` e `tipo`. Some
 
 Para conferir o isolamento, faça login separadamente com dois usuários de teste e compare as listagens. Os filtros devem manter o mesmo proprietário. Os testes automatizados verificam essa passagem do ID à consulta; a integração também foi conferida com MySQL e dados temporários revertidos por rollback.
 
-As operações `POST`, `PUT` e `DELETE` de categorias continuam pendentes nesta etapa.
+## Criação de categorias — Issue #7, terceira etapa
+
+No PowerShell, depois do login que preenche `$sessao`:
+
+```powershell
+$headers = @{ Authorization = "Bearer $($sessao.token)" }
+$categoria = @{ nome = 'Transporte'; tipo = 'saida' } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri 'http://localhost:3000/categorias' -Headers $headers -ContentType 'application/json' -Body $categoria
+```
+
+No Bash:
+
+```bash
+curl -i -X POST http://localhost:3000/categorias \
+  -H 'Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN' \
+  -H 'Content-Type: application/json' \
+  -d '{"nome":"Transporte","tipo":"saida"}'
+```
+
+Esses comandos criam dados no banco de desenvolvimento. Esperado: `201`, com `id`, `nome` e `tipo`. Use um nome ainda não cadastrado para o usuário e tipo escolhidos.
+
+- Repita a mesma criação: `409`, com mensagem em `campos.nome`.
+- Use o mesmo nome com `tipo: "entrada"`: a criação é permitida se essa combinação ainda não existir.
+- Faça login com outro usuário e use o mesmo nome e tipo: também é permitido.
+- Envie `nome: " "`, tipo inválido ou `{}`: `400`, sem criação.
+- Envie `usuario_id` de outro usuário no corpo: a categoria continua pertencendo ao dono do token.
+- Sem JWT válido: `401`.
+
+A integração da criação foi conferida com HTTP, JWT e MySQL reais, incluindo duplicidade e isolamento do proprietário. Todos os dados temporários dessa validação foram revertidos por rollback.
+
+As operações `PUT` e `DELETE` de categorias continuam pendentes nesta etapa.

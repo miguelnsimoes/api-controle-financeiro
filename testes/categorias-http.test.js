@@ -8,6 +8,7 @@ const segredoTeste = 'segredo_ficticio_para_testar_categorias';
 process.env.JWT_SECRET = segredoTeste;
 const app = require('../server');
 const listarOriginal = Categoria.listar;
+const criarOriginal = Categoria.criar;
 let server;
 let baseUrl;
 
@@ -16,7 +17,10 @@ before(async () => {
   baseUrl = `http://127.0.0.1:${server.address().port}/categorias`;
 });
 
-afterEach(() => { Categoria.listar = listarOriginal; });
+afterEach(() => {
+  Categoria.listar = listarOriginal;
+  Categoria.criar = criarOriginal;
+});
 
 after(async () => {
   if (segredoOriginal === undefined) delete process.env.JWT_SECRET;
@@ -95,6 +99,71 @@ test('tipo inválido retorna 400 sem consultar o banco', async () => {
 test('falha do model retorna 500 sem expor detalhes do banco', async () => {
   Categoria.listar = async () => { throw new Error('Detalhe privado da consulta'); };
   assert.deepEqual(await listar('', tokenUsuario(42)), {
+    status: 500, dados: { erro: 'Erro interno do servidor.' },
+  });
+});
+
+async function criar(dados, token) {
+  const resposta = await fetch(baseUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(dados),
+  });
+  return { status: resposta.status, dados: await resposta.json() };
+}
+
+test('POST /categorias exige JWT antes de gravar', async () => {
+  Categoria.criar = async () => { assert.fail('Não deve gravar sem autenticação'); };
+  for (const token of [undefined, 'token-invalido',
+    jwt.sign({ id: 42 }, segredoTeste, { expiresIn: -1 })]) {
+    assert.equal((await criar({ nome: 'Lazer', tipo: 'saida' }, token)).status, 401);
+  }
+});
+
+test('criação valida campos obrigatórios e tipos antes de chamar o model', async () => {
+  Categoria.criar = async () => { assert.fail('Dados inválidos não devem chegar ao model'); };
+  for (const dados of [{}, [], { nome: ' ', tipo: 'saida' },
+    { nome: 42, tipo: 'entrada' }, { nome: 'Lazer', tipo: 'invalido' },
+    { nome: 'Lazer', tipo: ['saida'] }]) {
+    const resposta = await criar(dados, tokenUsuario(42));
+    assert.equal(resposta.status, 400);
+    assert.equal(resposta.dados.erro, 'Dados inválidos.');
+    assert.ok(Object.keys(resposta.dados.campos).length > 0);
+  }
+  assert.deepEqual(await criar(null, tokenUsuario(42)), {
+    status: 400, dados: { erro: 'JSON inválido.' },
+  });
+});
+
+test('cria categorias de entrada e saída com nome aparado e proprietário do token', async () => {
+  for (const [id, tipo] of [[42, 'entrada'], [99, 'saida']]) {
+    Categoria.criar = async (dados) => {
+      assert.deepEqual(dados, { nome: 'Categoria', tipo, usuarioId: id });
+      return { id: 7, nome: dados.nome, tipo: dados.tipo };
+    };
+    assert.deepEqual(await criar({ nome: '  Categoria  ', tipo, usuario_id: 123, usuarioId: 123 }, tokenUsuario(id)), {
+      status: 201, dados: { id: 7, nome: 'Categoria', tipo },
+    });
+  }
+});
+
+test('nome duplicado para o mesmo usuário e tipo retorna 409', async () => {
+  Categoria.criar = async () => { throw Object.assign(new Error('Duplicidade'), { code: 'ER_DUP_ENTRY' }); };
+  assert.deepEqual(await criar({ nome: 'Lazer', tipo: 'saida' }, tokenUsuario(42)), {
+    status: 409,
+    dados: {
+      erro: 'Categoria já cadastrada.',
+      campos: { nome: 'Já existe uma categoria com este nome e tipo.' },
+    },
+  });
+});
+
+test('falha inesperada na criação retorna 500 sem detalhes do banco', async () => {
+  Categoria.criar = async () => { throw new Error('Detalhe privado da inserção'); };
+  assert.deepEqual(await criar({ nome: 'Lazer', tipo: 'saida' }, tokenUsuario(42)), {
     status: 500, dados: { erro: 'Erro interno do servidor.' },
   });
 });

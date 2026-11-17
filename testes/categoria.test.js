@@ -53,3 +53,24 @@ test('falhas na consulta são repassadas a quem chamou o model', async () => {
     await assert.rejects(Categoria.listar(42), (recebido) => recebido === erro);
   });
 });
+
+test('criação usa parâmetros SQL e retorna o identificador gerado pelo banco', async () => {
+  const nome = "Categoria d'água";
+  await simularConsulta(async (sql, parametros) => {
+    assert.equal(sql, 'INSERT INTO categorias (usuario_id, nome, tipo) VALUES (?, ?, ?)');
+    assert.deepEqual(parametros, [42, nome, 'saida']);
+    return [{ insertId: 7 }];
+  }, async () => {
+    assert.deepEqual(await Categoria.criar({ nome, tipo: 'saida', usuarioId: 42 }), {
+      id: 7, nome, tipo: 'saida',
+    });
+  });
+});
+
+test('criação repassa a violação UNIQUE para a rota tratar a duplicidade', async () => {
+  const erro = Object.assign(new Error('Duplicidade simulada'), { code: 'ER_DUP_ENTRY' });
+  await simularConsulta(async () => { throw erro; }, async () => {
+    await assert.rejects(Categoria.criar({ nome: 'Lazer', tipo: 'saida', usuarioId: 42 }),
+      (recebido) => recebido === erro);
+  });
+});

@@ -128,7 +128,7 @@ Token ausente, inválido ou expirado retorna `401` em JSON. Se o usuário do tok
 
 Os caminhos `/categorias`, `/fontes-destinos`, `/lancamentos` e `/relatorios` passam pelo middleware JWT no `server.js`, em todos os métodos HTTP. Sem token válido, retornam `401` em JSON. Cadastro e login continuam públicos, e `/auth/me` mantém sua proteção individual.
 
-Já existe a listagem `GET /categorias`, descrita abaixo. As operações de criação, atualização e exclusão de categorias e os demais recursos financeiros ainda não foram implementados. Rotas inexistentes retornam `404` em JSON após a validação do JWT. A proteção de um caminho não significa que todas as operações desse recurso existam ou que seu isolamento esteja concluído.
+Já existem a listagem `GET /categorias` e a criação `POST /categorias`, descritas abaixo. As operações de atualização e exclusão de categorias e os demais recursos financeiros ainda não foram implementados. Rotas inexistentes retornam `404` em JSON após a validação do JWT. A proteção de um caminho não significa que todas as operações desse recurso existam ou que seu isolamento esteja concluído.
 
 Nas Issues dos CRUDs, os respectivos Routers devem ser registrados **depois da proteção JWT e antes do tratador de 404**. Para concluir a Issue #6, será necessário aplicar e testar estas regras:
 
@@ -148,7 +148,22 @@ O filtro `GET /categorias?tipo=entrada` ou `GET /categorias?tipo=saida` é opcio
 
 A rota usa exclusivamente `req.auth.id` como proprietário, ignorando IDs de usuário enviados na query. O model `Categoria.listar()` aplica `WHERE usuario_id = ?` e, quando necessário, `AND tipo = ?`, com parâmetros separados do SQL. Sem JWT válido, a resposta é `401`.
 
-Nesta etapa, apenas a listagem está disponível. `POST`, `PUT` e `DELETE` serão implementados nas próximas etapas da Issue #7.
+## Criação de categorias — Issue #7 em andamento
+
+Envie `POST /categorias` com o token do login e `Content-Type: application/json`:
+
+```json
+{
+  "nome": "Transporte",
+  "tipo": "saida"
+}
+```
+
+Nome é obrigatório e tem espaços das extremidades removidos. Tipo deve ser `entrada` ou `saida`. Dados inválidos retornam `400`; sucesso retorna `201` com `id`, `nome` e `tipo`.
+
+O proprietário é obtido de `req.auth.id`, ignorando IDs enviados no corpo. O MySQL impede nome repetido para o mesmo usuário e tipo, e a API responde `409` com mensagem em `campos.nome`. O mesmo nome pode existir para outro usuário ou para outro tipo.
+
+Nesta etapa, listagem e criação estão disponíveis. `PUT` e `DELETE` serão implementados nas próximas etapas da Issue #7.
 
 ## Testes
 
