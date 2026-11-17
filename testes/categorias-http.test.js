@@ -10,6 +10,7 @@ const app = require('../server');
 const listarOriginal = Categoria.listar;
 const criarOriginal = Categoria.criar;
 const atualizarOriginal = Categoria.atualizar;
+const excluirOriginal = Categoria.excluir;
 let server;
 let baseUrl;
 
@@ -22,6 +23,7 @@ afterEach(() => {
   Categoria.listar = listarOriginal;
   Categoria.criar = criarOriginal;
   Categoria.atualizar = atualizarOriginal;
+  Categoria.excluir = excluirOriginal;
 });
 
 after(async () => {
@@ -246,4 +248,69 @@ test('erro inesperado na atualização retorna 500 com mensagem genérica', asyn
   assert.deepEqual(await atualizar(7, { nome: 'Lazer', tipo: 'saida' }, tokenUsuario(42)), {
     status: 500, dados: { erro: 'Erro interno do servidor.' },
   });
+});
+
+async function excluir(id, token, dados) {
+  const resposta = await fetch(`${baseUrl}/${id}`, {
+    method: 'DELETE',
+    headers: {
+      ...(dados !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: dados !== undefined ? JSON.stringify(dados) : undefined,
+  });
+  const corpo = await resposta.text();
+  return { status: resposta.status, corpo, dados: corpo ? JSON.parse(corpo) : null };
+}
+
+test('DELETE /categorias/:id exige JWT antes de excluir', async () => {
+  Categoria.excluir = async () => { assert.fail('Não deve excluir sem autenticação'); };
+  for (const token of [undefined, 'token-invalido',
+    jwt.sign({ id: 42 }, segredoTeste, { expiresIn: -1 })]) {
+    assert.equal((await excluir(7, token)).status, 401);
+  }
+});
+
+test('exclusão rejeita identificador inválido antes de consultar o model', async () => {
+  Categoria.excluir = async () => { assert.fail('ID inválido não deve chegar ao model'); };
+  for (const id of ['abc', 0, -1]) {
+    const resposta = await excluir(id, tokenUsuario(42));
+    assert.equal(resposta.status, 400);
+    assert.equal(resposta.dados.campos.id, 'Informe um identificador válido.');
+  }
+});
+
+test('exclusão usa o proprietário do token e retorna 204 sem corpo', async () => {
+  Categoria.excluir = async (id, usuarioId) => {
+    assert.equal(id, 7);
+    assert.equal(usuarioId, 42);
+    return true;
+  };
+  const resposta = await excluir('7?usuario_id=99', tokenUsuario(42), { usuario_id: 99, usuarioId: 99 });
+  assert.equal(resposta.status, 204);
+  assert.equal(resposta.corpo, '');
+  assert.equal(resposta.dados, null);
+});
+
+test('exclusão de categoria inexistente ou de outro usuário retorna o mesmo 404', async () => {
+  Categoria.excluir = async () => false;
+  for (const id of [7, 999]) {
+    const resposta = await excluir(id, tokenUsuario(42));
+    assert.equal(resposta.status, 404);
+    assert.deepEqual(resposta.dados, { erro: 'Categoria não encontrada.' });
+  }
+});
+
+test('exclusão de categoria vinculada a lançamentos retorna 409', async () => {
+  Categoria.excluir = async () => { throw Object.assign(new Error('Restrição'), { code: 'ER_ROW_IS_REFERENCED_2' }); };
+  const resposta = await excluir(7, tokenUsuario(42));
+  assert.equal(resposta.status, 409);
+  assert.deepEqual(resposta.dados, { erro: 'Não é possível excluir uma categoria com lançamentos vinculados.' });
+});
+
+test('erro inesperado na exclusão retorna 500 sem detalhes internos', async () => {
+  Categoria.excluir = async () => { throw new Error('Detalhe privado do DELETE'); };
+  const resposta = await excluir(7, tokenUsuario(42));
+  assert.equal(resposta.status, 500);
+  assert.deepEqual(resposta.dados, { erro: 'Erro interno do servidor.' });
 });

@@ -100,3 +100,26 @@ test('repetir os mesmos valores de uma categoria existente continua retornando s
     });
   });
 });
+
+test('exclusão usa ID e proprietário como parâmetros e informa sucesso', async () => {
+  await simularConsulta(async (sql, parametros) => {
+    assert.equal(sql, 'DELETE FROM categorias WHERE id = ? AND usuario_id = ?');
+    assert.deepEqual(parametros, [7, 42]);
+    return [{ affectedRows: 1 }];
+  }, async () => {
+    assert.equal(await Categoria.excluir(7, 42), true);
+  });
+});
+
+test('exclusão de categoria inexistente ou sem propriedade retorna false', async () => {
+  await simularConsulta(async () => [{ affectedRows: 0 }], async () => {
+    assert.equal(await Categoria.excluir(7, 42), false);
+  });
+});
+
+test('exclusão repassa a restrição de lançamentos vinculados para a rota', async () => {
+  const erro = Object.assign(new Error('Restrição simulada'), { code: 'ER_ROW_IS_REFERENCED_2' });
+  await simularConsulta(async () => { throw erro; }, async () => {
+    await assert.rejects(Categoria.excluir(7, 42), (recebido) => recebido === erro);
+  });
+});

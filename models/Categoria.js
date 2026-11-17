@@ -1,6 +1,15 @@
 const pool = require('../database/connection');
 
 class Categoria {
+  async excluir(id, usuarioId) {
+    const [resultado] = await pool.promise().execute(
+      'DELETE FROM categorias WHERE id = ? AND usuario_id = ?',
+      [id, usuarioId],
+    );
+
+    return resultado.affectedRows > 0;
+  }
+
   async atualizar(id, { nome, tipo, usuarioId }) {
     const [resultado] = await pool.promise().execute(
       'UPDATE categorias SET nome = ?, tipo = ? WHERE id = ? AND usuario_id = ?',

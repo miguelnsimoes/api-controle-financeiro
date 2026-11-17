@@ -263,4 +263,33 @@ Esses comandos alteram uma categoria no banco de desenvolvimento. Esperado: `200
 
 A integração foi validada com dois usuários no MySQL, verificando que tentativas de atualização cruzada não modificam os registros. Os dados temporários foram revertidos por rollback.
 
-A operação `DELETE` continua pendente para concluir a Issue #7.
+## Exclusão de categorias — Issue #7, quinta etapa
+
+Use uma categoria fictícia que você criou para testar. A exclusão é persistida no banco de desenvolvimento quando executada manualmente.
+
+No PowerShell, depois do login que preenche `$sessao`:
+
+```powershell
+$headers = @{ Authorization = "Bearer $($sessao.token)" }
+$categoriaId = Read-Host 'ID de uma categoria de teste sua, sem lançamentos'
+Invoke-RestMethod -Method Delete -Uri "http://localhost:3000/categorias/$categoriaId" -Headers $headers
+```
+
+No Bash, substitua `ID_DA_CATEGORIA` pelo identificador:
+
+```bash
+curl -i -X DELETE http://localhost:3000/categorias/ID_DA_CATEGORIA \
+  -H 'Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN'
+```
+
+Esperado: `204 No Content`, sem corpo. A categoria deixa de aparecer em `GET /categorias`.
+
+- Repita a exclusão ou use ID inexistente: `404`.
+- Use categoria de outro usuário, inclusive enviando o ID do proprietário no corpo ou na query: `404`, sem exclusão.
+- Use categoria sua com lançamento vinculado: `409` com `erro: "Não é possível excluir uma categoria com lançamentos vinculados."`. Categoria e lançamento devem permanecer.
+- Use ID inválido: `400`.
+- Sem token, com token inválido ou expirado: `401`.
+
+O teste da restrição de vínculo foi realizado no MySQL com registros temporários em uma transação, sem implementar antecipadamente as rotas de lançamentos. O CRUD completo também foi validado por HTTP com dois usuários, incluindo bloqueio de alterações e exclusões entre proprietários. Ao final, todos os dados temporários foram desfeitos por rollback.
+
+Para repetir testes de vínculo antes de existir o CRUD de lançamentos, utilize um ambiente de teste separado. Não remova constraints nem altere dados existentes para simular o cenário.
