@@ -152,11 +152,11 @@ Repita com `-H 'Authorization: Bearer token-invalido'`: o retorno continua sendo
 Com um token válido do login:
 
 ```bash
-curl -i http://localhost:3000/categorias \
+curl -i http://localhost:3000/fontes-destinos \
   -H 'Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN'
 ```
 
-No estado atual, o resultado é `404` com `erro: "Rota não encontrada."`, porque o CRUD não existe. Esse resultado não é um teste de acesso a uma categoria de outro usuário.
+No estado atual, o resultado é `404` com `erro: "Rota não encontrada."`, porque o CRUD de fontes/destinos não existe. Esse resultado não é um teste de acesso a um registro de outro usuário. A listagem de categorias já está disponível, conforme os exemplos a seguir.
 
 `npm test` verifica as barreiras JWT nos métodos GET, POST, PUT e DELETE, os erros JSON da aplicação e o perfil de dois usuários simulados. Não cria registros nem implementa endpoints financeiros de teste em produção.
 
@@ -170,3 +170,126 @@ Após implementar os CRUDs nas respectivas Issues, criar dois usuários fictíci
 - Um lançamento rejeita categoria ou fonte/destino do outro usuário com `404`, sem gravar dados parciais.
 
 Até essas verificações serem possíveis e passarem, a Issue #6 permanece em andamento.
+
+## Listagem de categorias — Issue #7, segunda etapa
+
+Faça login com um usuário cadastrado e use o token para consultar suas categorias.
+
+No PowerShell, depois do login que preenche `$sessao`:
+
+```powershell
+$headers = @{ Authorization = "Bearer $($sessao.token)" }
+Invoke-RestMethod -Method Get -Uri 'http://localhost:3000/categorias' -Headers $headers
+Invoke-RestMethod -Method Get -Uri 'http://localhost:3000/categorias?tipo=entrada' -Headers $headers
+Invoke-RestMethod -Method Get -Uri 'http://localhost:3000/categorias?tipo=saida' -Headers $headers
+```
+
+No Bash:
+
+```bash
+curl -i http://localhost:3000/categorias \
+  -H 'Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN'
+
+curl -i 'http://localhost:3000/categorias?tipo=saida' \
+  -H 'Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN'
+```
+
+Esperado: `200`, com um array de categorias contendo `id`, `nome` e `tipo`. Somente as categorias do usuário autenticado aparecem; se não houver resultados, retorna `[]`. Um usuário criado pela rota de cadastro começa com as nove categorias padrão.
+
+- Sem token, com token inválido ou expirado: `401` em JSON.
+- Com token válido e `?tipo=invalido`, `?tipo=` ou filtro repetido: `400`, com mensagem em `campos.tipo`.
+- Com `?usuario_id=ID_DE_OUTRO_USUARIO`, o proprietário continua sendo o ID do token.
+
+Para conferir o isolamento, faça login separadamente com dois usuários de teste e compare as listagens. Os filtros devem manter o mesmo proprietário. Os testes automatizados verificam essa passagem do ID à consulta; a integração também foi conferida com MySQL e dados temporários revertidos por rollback.
+
+## Criação de categorias — Issue #7, terceira etapa
+
+No PowerShell, depois do login que preenche `$sessao`:
+
+```powershell
+$headers = @{ Authorization = "Bearer $($sessao.token)" }
+$categoria = @{ nome = 'Transporte'; tipo = 'saida' } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri 'http://localhost:3000/categorias' -Headers $headers -ContentType 'application/json' -Body $categoria
+```
+
+No Bash:
+
+```bash
+curl -i -X POST http://localhost:3000/categorias \
+  -H 'Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN' \
+  -H 'Content-Type: application/json' \
+  -d '{"nome":"Transporte","tipo":"saida"}'
+```
+
+Esses comandos criam dados no banco de desenvolvimento. Esperado: `201`, com `id`, `nome` e `tipo`. Use um nome ainda não cadastrado para o usuário e tipo escolhidos.
+
+- Repita a mesma criação: `409`, com mensagem em `campos.nome`.
+- Use o mesmo nome com `tipo: "entrada"`: a criação é permitida se essa combinação ainda não existir.
+- Faça login com outro usuário e use o mesmo nome e tipo: também é permitido.
+- Envie `nome: " "`, tipo inválido ou `{}`: `400`, sem criação.
+- Envie `usuario_id` de outro usuário no corpo: a categoria continua pertencendo ao dono do token.
+- Sem JWT válido: `401`.
+
+A integração da criação foi conferida com HTTP, JWT e MySQL reais, incluindo duplicidade e isolamento do proprietário. Todos os dados temporários dessa validação foram revertidos por rollback.
+
+## Atualização de categorias — Issue #7, quarta etapa
+
+Use o ID de uma categoria que pertence ao usuário autenticado. No PowerShell, depois do login que preenche `$sessao`:
+
+```powershell
+$headers = @{ Authorization = "Bearer $($sessao.token)" }
+$categoriaId = Read-Host 'ID de uma categoria sua'
+$alteracao = @{ nome = 'Transporte atualizado'; tipo = 'saida' } | ConvertTo-Json
+Invoke-RestMethod -Method Put -Uri "http://localhost:3000/categorias/$categoriaId" -Headers $headers -ContentType 'application/json' -Body $alteracao
+```
+
+No Bash, substitua `ID_DA_CATEGORIA` pelo identificador:
+
+```bash
+curl -i -X PUT http://localhost:3000/categorias/ID_DA_CATEGORIA \
+  -H 'Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN' \
+  -H 'Content-Type: application/json' \
+  -d '{"nome":"Transporte atualizado","tipo":"saida"}'
+```
+
+Esses comandos alteram uma categoria no banco de desenvolvimento. Esperado: `200` com `id`, `nome` e `tipo` atualizados.
+
+- Repita com os mesmos valores: continua retornando `200`.
+- Use nome e tipo de outra categoria sua: `409`, preservando a categoria que tentou atualizar.
+- Use um ID inexistente ou de categoria de outro usuário: `404` com a mesma mensagem, sem alteração.
+- Envie ID inválido, nome vazio ou tipo inválido: `400`.
+- Sem JWT válido: `401`.
+- Envie `usuario_id` de outro usuário no corpo ou na query: isso não muda o proprietário usado no filtro nem permite transferir a categoria.
+
+A integração foi validada com dois usuários no MySQL, verificando que tentativas de atualização cruzada não modificam os registros. Os dados temporários foram revertidos por rollback.
+
+## Exclusão de categorias — Issue #7, quinta etapa
+
+Use uma categoria fictícia que você criou para testar. A exclusão é persistida no banco de desenvolvimento quando executada manualmente.
+
+No PowerShell, depois do login que preenche `$sessao`:
+
+```powershell
+$headers = @{ Authorization = "Bearer $($sessao.token)" }
+$categoriaId = Read-Host 'ID de uma categoria de teste sua, sem lançamentos'
+Invoke-RestMethod -Method Delete -Uri "http://localhost:3000/categorias/$categoriaId" -Headers $headers
+```
+
+No Bash, substitua `ID_DA_CATEGORIA` pelo identificador:
+
+```bash
+curl -i -X DELETE http://localhost:3000/categorias/ID_DA_CATEGORIA \
+  -H 'Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN'
+```
+
+Esperado: `204 No Content`, sem corpo. A categoria deixa de aparecer em `GET /categorias`.
+
+- Repita a exclusão ou use ID inexistente: `404`.
+- Use categoria de outro usuário, inclusive enviando o ID do proprietário no corpo ou na query: `404`, sem exclusão.
+- Use categoria sua com lançamento vinculado: `409` com `erro: "Não é possível excluir uma categoria com lançamentos vinculados."`. Categoria e lançamento devem permanecer.
+- Use ID inválido: `400`.
+- Sem token, com token inválido ou expirado: `401`.
+
+O teste da restrição de vínculo foi realizado no MySQL com registros temporários em uma transação, sem implementar antecipadamente as rotas de lançamentos. O CRUD completo também foi validado por HTTP com dois usuários, incluindo bloqueio de alterações e exclusões entre proprietários. Ao final, todos os dados temporários foram desfeitos por rollback.
+
+Para repetir testes de vínculo antes de existir o CRUD de lançamentos, utilize um ambiente de teste separado. Não remova constraints nem altere dados existentes para simular o cenário.

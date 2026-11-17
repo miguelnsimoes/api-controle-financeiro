@@ -128,7 +128,7 @@ Token ausente, inválido ou expirado retorna `401` em JSON. Se o usuário do tok
 
 Os caminhos `/categorias`, `/fontes-destinos`, `/lancamentos` e `/relatorios` passam pelo middleware JWT no `server.js`, em todos os métodos HTTP. Sem token válido, retornam `401` em JSON. Cadastro e login continuam públicos, e `/auth/me` mantém sua proteção individual.
 
-Os CRUDs financeiros ainda não foram implementados. Portanto, apresentar um token válido nesses caminhos retorna `404` com `erro: "Rota não encontrada."`. A proteção de um caminho não significa que o recurso já existe ou que o isolamento de seus registros esteja concluído.
+O CRUD de categorias está implementado: `GET /categorias`, `POST /categorias`, `PUT /categorias/:id` e `DELETE /categorias/:id`. As operações usam o proprietário do token. Os demais recursos financeiros ainda não foram implementados e retornam `404` em JSON após a validação do JWT; sua proteção não significa que o isolamento de todas as operações da aplicação esteja concluído.
 
 Nas Issues dos CRUDs, os respectivos Routers devem ser registrados **depois da proteção JWT e antes do tratador de 404**. Para concluir a Issue #6, será necessário aplicar e testar estas regras:
 
@@ -139,6 +139,43 @@ Nas Issues dos CRUDs, os respectivos Routers devem ser registrados **depois da p
 - Testar as operações com dois usuários distintos, garantindo que nenhum consulte, altere ou exclua registros do outro.
 
 Esses pontos dependem das Issues #7 (categorias), #8 (fontes/destinos) e #9 (lançamentos). A Issue #6 deve permanecer em andamento até a implementação e validação do isolamento nesses recursos.
+
+## Listagem de categorias — Issue #7 em andamento
+
+Envie `GET /categorias` com `Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN`. A resposta `200` contém um array com `id`, `nome` e `tipo` das categorias do usuário autenticado. Sem categorias, retorna `[]`.
+
+O filtro `GET /categorias?tipo=entrada` ou `GET /categorias?tipo=saida` é opcional. Um valor informado diferente dessas opções retorna `400` com mensagem em `campos.tipo`.
+
+A rota usa exclusivamente `req.auth.id` como proprietário, ignorando IDs de usuário enviados na query. O model `Categoria.listar()` aplica `WHERE usuario_id = ?` e, quando necessário, `AND tipo = ?`, com parâmetros separados do SQL. Sem JWT válido, a resposta é `401`.
+
+## Criação de categorias — Issue #7 em andamento
+
+Envie `POST /categorias` com o token do login e `Content-Type: application/json`:
+
+```json
+{
+  "nome": "Transporte",
+  "tipo": "saida"
+}
+```
+
+Nome é obrigatório e tem espaços das extremidades removidos. Tipo deve ser `entrada` ou `saida`. Dados inválidos retornam `400`; sucesso retorna `201` com `id`, `nome` e `tipo`.
+
+O proprietário é obtido de `req.auth.id`, ignorando IDs enviados no corpo. O MySQL impede nome repetido para o mesmo usuário e tipo, e a API responde `409` com mensagem em `campos.nome`. O mesmo nome pode existir para outro usuário ou para outro tipo.
+
+## Atualização de categorias — Issue #7 em andamento
+
+Envie `PUT /categorias/:id` com JWT válido e um JSON contendo `nome` e `tipo`, seguindo as mesmas validações da criação. O ID da categoria vem da URL e o proprietário vem exclusivamente de `req.auth.id`.
+
+O model atualiza com `WHERE id = ? AND usuario_id = ?`. No sucesso, retorna `200` com `id`, `nome` e `tipo`, inclusive ao repetir os mesmos valores. Categoria inexistente ou pertencente a outro usuário retorna `404`, sem indicar a existência de dados de terceiros. Dados ou identificador inválidos retornam `400`, e nome duplicado para o mesmo usuário e tipo retorna `409`.
+
+## Exclusão de categorias
+
+Envie `DELETE /categorias/:id` com JWT válido. O model executa `DELETE FROM categorias WHERE id = ? AND usuario_id = ?`, usando o proprietário do token. A exclusão bem-sucedida retorna `204` sem corpo.
+
+ID inválido retorna `400`; categoria inexistente ou de outro usuário retorna `404`. A chave estrangeira de `lancamentos.categoria_id` impede excluir uma categoria com lançamentos vinculados. Nessa situação, a API retorna `409` com mensagem explicativa, preservando a categoria e os lançamentos.
+
+O CRUD da Issue #7 está implementado e validado. A conclusão da Issue no fluxo da equipe depende da revisão, integração por PR e validação em `develop`. O restante do isolamento da Issue #6 continua dependendo dos demais recursos financeiros.
 
 ## Testes
 
@@ -163,10 +200,12 @@ api-controle-financeiro/
 │   └── auth.js
 ├── models/
 │   ├── .gitkeep
+│   ├── Categoria.js
 │   └── Usuario.js
 ├── routes/
 │   ├── .gitkeep
-│   └── auth.js
+│   ├── auth.js
+│   └── categorias.js
 ├── utils/
 │   ├── .gitkeep
 │   └── cpf.js
@@ -175,6 +214,8 @@ api-controle-financeiro/
 │   ├── auth-login.test.js
 │   ├── auth-perfil.test.js
 │   ├── auth-recursos.test.js
+│   ├── categoria.test.js
+│   ├── categorias-http.test.js
 │   ├── cpf.test.js
 │   ├── usuario-login.test.js
 │   ├── usuario.test.js
@@ -187,7 +228,7 @@ api-controle-financeiro/
 └── server.js
 ```
 
-Os arquivos `.gitkeep` preservam os diretórios iniciais. O SQL de cadastro e consulta de usuários fica em `models/Usuario.js`; `routes/auth.js` valida as entradas e monta as respostas. O middleware JWT de `middleware/auth.js` protege individualmente a rota de perfil, mantendo cadastro e login públicos.
+Os arquivos `.gitkeep` preservam os diretórios iniciais. O SQL de usuários fica em `models/Usuario.js`, e o de categorias em `models/Categoria.js`. Os arquivos de `routes/` validam as entradas e montam as respostas. O middleware JWT protege os caminhos financeiros e a rota de perfil, mantendo cadastro e login públicos.
 
 ## Fluxo de colaboração
 

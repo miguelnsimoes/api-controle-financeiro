@@ -60,7 +60,7 @@ test('caminhos financeiros rejeitam tokens inválidos, expirados e com assinatur
 
 test('token válido não cria endpoints financeiros que ainda não existem', async () => {
   const token = jwt.sign({ id: 42 }, segredoTeste, { expiresIn: '1h' });
-  for (const caminho of caminhosPrivados) {
+  for (const caminho of ['/fontes-destinos', '/lancamentos', '/relatorios']) {
     assert.deepEqual(await requisicao(caminho, 'GET', token), {
       status: 404,
       dados: { erro: 'Rota não encontrada.' },
