@@ -152,11 +152,11 @@ Repita com `-H 'Authorization: Bearer token-invalido'`: o retorno continua sendo
 Com um token válido do login:
 
 ```bash
-curl -i http://localhost:3000/categorias \
+curl -i http://localhost:3000/fontes-destinos \
   -H 'Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN'
 ```
 
-No estado atual, o resultado é `404` com `erro: "Rota não encontrada."`, porque o CRUD não existe. Esse resultado não é um teste de acesso a uma categoria de outro usuário.
+No estado atual, o resultado é `404` com `erro: "Rota não encontrada."`, porque o CRUD de fontes/destinos não existe. Esse resultado não é um teste de acesso a um registro de outro usuário. A listagem de categorias já está disponível, conforme os exemplos a seguir.
 
 `npm test` verifica as barreiras JWT nos métodos GET, POST, PUT e DELETE, os erros JSON da aplicação e o perfil de dois usuários simulados. Não cria registros nem implementa endpoints financeiros de teste em produção.
 
@@ -170,3 +170,36 @@ Após implementar os CRUDs nas respectivas Issues, criar dois usuários fictíci
 - Um lançamento rejeita categoria ou fonte/destino do outro usuário com `404`, sem gravar dados parciais.
 
 Até essas verificações serem possíveis e passarem, a Issue #6 permanece em andamento.
+
+## Listagem de categorias — Issue #7, segunda etapa
+
+Faça login com um usuário cadastrado e use o token para consultar suas categorias.
+
+No PowerShell, depois do login que preenche `$sessao`:
+
+```powershell
+$headers = @{ Authorization = "Bearer $($sessao.token)" }
+Invoke-RestMethod -Method Get -Uri 'http://localhost:3000/categorias' -Headers $headers
+Invoke-RestMethod -Method Get -Uri 'http://localhost:3000/categorias?tipo=entrada' -Headers $headers
+Invoke-RestMethod -Method Get -Uri 'http://localhost:3000/categorias?tipo=saida' -Headers $headers
+```
+
+No Bash:
+
+```bash
+curl -i http://localhost:3000/categorias \
+  -H 'Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN'
+
+curl -i 'http://localhost:3000/categorias?tipo=saida' \
+  -H 'Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN'
+```
+
+Esperado: `200`, com um array de categorias contendo `id`, `nome` e `tipo`. Somente as categorias do usuário autenticado aparecem; se não houver resultados, retorna `[]`. Um usuário criado pela rota de cadastro começa com as nove categorias padrão.
+
+- Sem token, com token inválido ou expirado: `401` em JSON.
+- Com token válido e `?tipo=invalido`, `?tipo=` ou filtro repetido: `400`, com mensagem em `campos.tipo`.
+- Com `?usuario_id=ID_DE_OUTRO_USUARIO`, o proprietário continua sendo o ID do token.
+
+Para conferir o isolamento, faça login separadamente com dois usuários de teste e compare as listagens. Os filtros devem manter o mesmo proprietário. Os testes automatizados verificam essa passagem do ID à consulta; a integração também foi conferida com MySQL e dados temporários revertidos por rollback.
+
+As operações `POST`, `PUT` e `DELETE` de categorias continuam pendentes nesta etapa.

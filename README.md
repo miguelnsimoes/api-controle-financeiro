@@ -128,7 +128,7 @@ Token ausente, inválido ou expirado retorna `401` em JSON. Se o usuário do tok
 
 Os caminhos `/categorias`, `/fontes-destinos`, `/lancamentos` e `/relatorios` passam pelo middleware JWT no `server.js`, em todos os métodos HTTP. Sem token válido, retornam `401` em JSON. Cadastro e login continuam públicos, e `/auth/me` mantém sua proteção individual.
 
-Os CRUDs financeiros ainda não foram implementados. Portanto, apresentar um token válido nesses caminhos retorna `404` com `erro: "Rota não encontrada."`. A proteção de um caminho não significa que o recurso já existe ou que o isolamento de seus registros esteja concluído.
+Já existe a listagem `GET /categorias`, descrita abaixo. As operações de criação, atualização e exclusão de categorias e os demais recursos financeiros ainda não foram implementados. Rotas inexistentes retornam `404` em JSON após a validação do JWT. A proteção de um caminho não significa que todas as operações desse recurso existam ou que seu isolamento esteja concluído.
 
 Nas Issues dos CRUDs, os respectivos Routers devem ser registrados **depois da proteção JWT e antes do tratador de 404**. Para concluir a Issue #6, será necessário aplicar e testar estas regras:
 
@@ -139,6 +139,16 @@ Nas Issues dos CRUDs, os respectivos Routers devem ser registrados **depois da p
 - Testar as operações com dois usuários distintos, garantindo que nenhum consulte, altere ou exclua registros do outro.
 
 Esses pontos dependem das Issues #7 (categorias), #8 (fontes/destinos) e #9 (lançamentos). A Issue #6 deve permanecer em andamento até a implementação e validação do isolamento nesses recursos.
+
+## Listagem de categorias — Issue #7 em andamento
+
+Envie `GET /categorias` com `Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN`. A resposta `200` contém um array com `id`, `nome` e `tipo` das categorias do usuário autenticado. Sem categorias, retorna `[]`.
+
+O filtro `GET /categorias?tipo=entrada` ou `GET /categorias?tipo=saida` é opcional. Um valor informado diferente dessas opções retorna `400` com mensagem em `campos.tipo`.
+
+A rota usa exclusivamente `req.auth.id` como proprietário, ignorando IDs de usuário enviados na query. O model `Categoria.listar()` aplica `WHERE usuario_id = ?` e, quando necessário, `AND tipo = ?`, com parâmetros separados do SQL. Sem JWT válido, a resposta é `401`.
+
+Nesta etapa, apenas a listagem está disponível. `POST`, `PUT` e `DELETE` serão implementados nas próximas etapas da Issue #7.
 
 ## Testes
 
@@ -163,10 +173,12 @@ api-controle-financeiro/
 │   └── auth.js
 ├── models/
 │   ├── .gitkeep
+│   ├── Categoria.js
 │   └── Usuario.js
 ├── routes/
 │   ├── .gitkeep
-│   └── auth.js
+│   ├── auth.js
+│   └── categorias.js
 ├── utils/
 │   ├── .gitkeep
 │   └── cpf.js
@@ -175,6 +187,8 @@ api-controle-financeiro/
 │   ├── auth-login.test.js
 │   ├── auth-perfil.test.js
 │   ├── auth-recursos.test.js
+│   ├── categoria.test.js
+│   ├── categorias-http.test.js
 │   ├── cpf.test.js
 │   ├── usuario-login.test.js
 │   ├── usuario.test.js
