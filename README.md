@@ -195,6 +195,12 @@ Envie `PUT /fontes-destinos/:id` com o JWT e o JSON completo, seguindo as regras
 
 A atualização retorna `200` com os dados atualizados. Um registro inexistente ou de outro usuário retorna `404`. Dados inválidos retornam `400` e nome duplicado retorna `409`.
 
+## Exclusão de fontes e destinos
+
+Envie `DELETE /fontes-destinos/:id` com o JWT. Se o registro pertencer ao usuário autenticado e não tiver lançamentos vinculados, a resposta é `204` sem corpo.
+
+Um ID inválido retorna `400`. Um registro inexistente ou de outro usuário retorna `404`. Se houver lançamentos vinculados ao registro do usuário, o banco impede a exclusão e a API retorna `409`.
+
 ## Testes
 
 ```bash

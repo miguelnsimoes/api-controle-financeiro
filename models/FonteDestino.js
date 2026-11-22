@@ -1,6 +1,15 @@
 const pool = require('../database/connection');
 
 class FonteDestino {
+  async excluir(id, usuarioId) {
+    const [resultado] = await pool.promise().execute(
+      'DELETE FROM fontes_destinos WHERE id = ? AND usuario_id = ?',
+      [id, usuarioId],
+    );
+
+    return resultado.affectedRows > 0;
+  }
+
   async atualizar(id, { usuarioId, nome, tipo, diaFechamento, diaVencimento, limite }) {
     const [resultado] = await pool.promise().execute(
       `UPDATE fontes_destinos
