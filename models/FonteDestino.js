@@ -1,6 +1,23 @@
 const pool = require('../database/connection');
 
 class FonteDestino {
+  async criar({ usuarioId, nome, tipo, diaFechamento, diaVencimento, limite }) {
+    const [resultado] = await pool.promise().execute(
+      `INSERT INTO fontes_destinos (usuario_id, nome, tipo, dia_fechamento, dia_vencimento, limite)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [usuarioId, nome, tipo, diaFechamento, diaVencimento, limite],
+    );
+
+    return {
+      id: resultado.insertId,
+      nome,
+      tipo,
+      dia_fechamento: diaFechamento,
+      dia_vencimento: diaVencimento,
+      limite,
+    };
+  }
+
   async listar(usuarioId, tipo) {
     let sql = `SELECT id, nome, tipo, dia_fechamento, dia_vencimento, limite
       FROM fontes_destinos WHERE usuario_id = ?`;

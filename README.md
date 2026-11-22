@@ -183,6 +183,12 @@ Envie `GET /fontes-destinos` com `Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN`
 
 Use `?tipo=renda`, `?tipo=conta` ou `?tipo=cartao_credito` para filtrar. Um tipo inválido retorna `400`. Sem JWT válido, a resposta é `401`.
 
+## Criação de fontes e destinos
+
+Envie `POST /fontes-destinos` com o JWT do login e um JSON como `{"nome":"Conta corrente","tipo":"conta"}`. Para `cartao_credito`, inclua `dia_fechamento` e `dia_vencimento` como inteiros de 1 a 31 e `limite` como valor numérico de pelo menos um centavo.
+
+A criação retorna `201` com o registro criado. Dados inválidos retornam `400` e nome duplicado para o mesmo usuário retorna `409`, mesmo entre tipos diferentes.
+
 ## Testes
 
 ```bash
