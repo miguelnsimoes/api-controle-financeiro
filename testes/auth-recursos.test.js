@@ -60,11 +60,41 @@ test('caminhos financeiros rejeitam tokens inválidos, expirados e com assinatur
 
 test('token válido não cria endpoints financeiros que ainda não existem', async () => {
   const token = jwt.sign({ id: 42 }, segredoTeste, { expiresIn: '1h' });
-  for (const caminho of ['/fontes-destinos', '/lancamentos', '/relatorios']) {
+  for (const caminho of ['/lancamentos', '/relatorios']) {
     assert.deepEqual(await requisicao(caminho, 'GET', token), {
       status: 404,
       dados: { erro: 'Rota não encontrada.' },
     });
+  }
+});
+
+test('fontes e destinos são listados pelo ID do token e pelo filtro opcional', async () => {
+  const pool = require('../database/connection');
+  const promiseOriginal = pool.promise;
+  const contas = {
+    42: [{ id: 1, nome: 'Conta A', tipo: 'conta', dia_fechamento: null, dia_vencimento: null, limite: null }],
+    99: [{ id: 2, nome: 'Conta B', tipo: 'conta', dia_fechamento: null, dia_vencimento: null, limite: null }],
+  };
+  pool.promise = () => ({
+    execute: async (sql, parametros) => {
+      assert.match(sql, /FROM fontes_destinos WHERE usuario_id = \?/);
+      assert.match(sql, /AND tipo = \?/);
+      assert.equal(parametros[1], 'conta');
+      return [contas[parametros[0]] || []];
+    },
+  });
+
+  try {
+    for (const id of [42, 99, 100]) {
+      const token = jwt.sign({ id }, segredoTeste, { expiresIn: '1h' });
+      assert.deepEqual(await requisicao('/fontes-destinos?tipo=conta&usuario_id=42', 'GET', token), {
+        status: 200,
+        dados: contas[id] || [],
+      });
+      assert.equal((await requisicao('/fontes-destinos?tipo=saida', 'GET', token)).status, 400);
+    }
+  } finally {
+    pool.promise = promiseOriginal;
   }
 });
 

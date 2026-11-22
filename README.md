@@ -128,7 +128,7 @@ Token ausente, inválido ou expirado retorna `401` em JSON. Se o usuário do tok
 
 Os caminhos `/categorias`, `/fontes-destinos`, `/lancamentos` e `/relatorios` passam pelo middleware JWT no `server.js`, em todos os métodos HTTP. Sem token válido, retornam `401` em JSON. Cadastro e login continuam públicos, e `/auth/me` mantém sua proteção individual.
 
-O CRUD de categorias está implementado: `GET /categorias`, `POST /categorias`, `PUT /categorias/:id` e `DELETE /categorias/:id`. As operações usam o proprietário do token. Os demais recursos financeiros ainda não foram implementados e retornam `404` em JSON após a validação do JWT; sua proteção não significa que o isolamento de todas as operações da aplicação esteja concluído.
+O CRUD de categorias está implementado: `GET /categorias`, `POST /categorias`, `PUT /categorias/:id` e `DELETE /categorias/:id`. Essas operações, a listagem de fontes e destinos e o relatório em `GET /relatorios/categorias` usam o proprietário do token. Os endpoints de lançamentos ainda não estão implementados.
 
 Nas Issues dos CRUDs, os respectivos Routers devem ser registrados **depois da proteção JWT e antes do tratador de 404**. Para concluir a Issue #6, será necessário aplicar e testar estas regras:
 
@@ -176,6 +176,12 @@ Envie `DELETE /categorias/:id` com JWT válido. O model executa `DELETE FROM cat
 ID inválido retorna `400`; categoria inexistente ou de outro usuário retorna `404`. A chave estrangeira de `lancamentos.categoria_id` impede excluir uma categoria com lançamentos vinculados. Nessa situação, a API retorna `409` com mensagem explicativa, preservando a categoria e os lançamentos.
 
 O CRUD da Issue #7 está implementado e validado. A conclusão da Issue no fluxo da equipe depende da revisão, integração por PR e validação em `develop`. O restante do isolamento da Issue #6 continua dependendo dos demais recursos financeiros.
+
+## Listagem de fontes e destinos
+
+Envie `GET /fontes-destinos` com `Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN`. A resposta `200` contém apenas os registros do usuário autenticado. Sem registros, a resposta é `[]`.
+
+Use `?tipo=renda`, `?tipo=conta` ou `?tipo=cartao_credito` para filtrar. Um tipo inválido retorna `400`. Sem JWT válido, a resposta é `401`.
 
 ## Testes
 
