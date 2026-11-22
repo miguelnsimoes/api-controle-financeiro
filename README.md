@@ -189,6 +189,12 @@ Envie `POST /fontes-destinos` com o JWT do login e um JSON como `{"nome":"Conta 
 
 A criação retorna `201` com o registro criado. Dados inválidos retornam `400` e nome duplicado para o mesmo usuário retorna `409`, mesmo entre tipos diferentes.
 
+## Atualização de fontes e destinos
+
+Envie `PUT /fontes-destinos/:id` com o JWT e o JSON completo, seguindo as regras da criação. Ao mudar o tipo de cartão para conta ou renda, os campos de cartão são gravados como `null`.
+
+A atualização retorna `200` com os dados atualizados. Um registro inexistente ou de outro usuário retorna `404`. Dados inválidos retornam `400` e nome duplicado retorna `409`.
+
 ## Testes
 
 ```bash

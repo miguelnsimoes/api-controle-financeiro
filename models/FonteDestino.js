@@ -1,6 +1,27 @@
 const pool = require('../database/connection');
 
 class FonteDestino {
+  async atualizar(id, { usuarioId, nome, tipo, diaFechamento, diaVencimento, limite }) {
+    const [resultado] = await pool.promise().execute(
+      `UPDATE fontes_destinos
+       SET nome = ?, tipo = ?, dia_fechamento = ?, dia_vencimento = ?, limite = ?
+       WHERE id = ? AND usuario_id = ?`,
+      [nome, tipo, diaFechamento, diaVencimento, limite, id, usuarioId],
+    );
+    if (resultado.affectedRows === 0) {
+      return null;
+    }
+
+    return {
+      id,
+      nome,
+      tipo,
+      dia_fechamento: diaFechamento,
+      dia_vencimento: diaVencimento,
+      limite,
+    };
+  }
+
   async criar({ usuarioId, nome, tipo, diaFechamento, diaVencimento, limite }) {
     const [resultado] = await pool.promise().execute(
       `INSERT INTO fontes_destinos (usuario_id, nome, tipo, dia_fechamento, dia_vencimento, limite)
