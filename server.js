@@ -13,6 +13,7 @@ app.use('/auth', require('./routes/auth'));
 // Os Routers financeiros deverão ser registrados depois desta proteção.
 app.use(['/categorias', '/fontes-destinos', '/lancamentos', '/relatorios'], protegerRota);
 app.use('/categorias', require('./routes/categorias'));
+app.use('/relatorios', require('./routes/relatorios'));
 
 app.use((req, res) => {
   return res.status(404).json({ erro: 'Rota não encontrada.' });
