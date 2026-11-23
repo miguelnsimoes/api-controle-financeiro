@@ -128,7 +128,7 @@ Token ausente, inválido ou expirado retorna `401` em JSON. Se o usuário do tok
 
 Os caminhos `/categorias`, `/fontes-destinos`, `/lancamentos` e `/relatorios` passam pelo middleware JWT no `server.js`, em todos os métodos HTTP. Sem token válido, retornam `401` em JSON. Cadastro e login continuam públicos, e `/auth/me` mantém sua proteção individual.
 
-O CRUD de categorias está implementado: `GET /categorias`, `POST /categorias`, `PUT /categorias/:id` e `DELETE /categorias/:id`. As operações usam o proprietário do token. Os demais recursos financeiros ainda não foram implementados e retornam `404` em JSON após a validação do JWT; sua proteção não significa que o isolamento de todas as operações da aplicação esteja concluído.
+O CRUD de categorias está implementado: `GET /categorias`, `POST /categorias`, `PUT /categorias/:id` e `DELETE /categorias/:id`. Essas operações, a listagem de fontes e destinos e o relatório em `GET /relatorios/categorias` usam o proprietário do token. Os endpoints de lançamentos ainda não estão implementados.
 
 Nas Issues dos CRUDs, os respectivos Routers devem ser registrados **depois da proteção JWT e antes do tratador de 404**. Para concluir a Issue #6, será necessário aplicar e testar estas regras:
 
@@ -176,6 +176,30 @@ Envie `DELETE /categorias/:id` com JWT válido. O model executa `DELETE FROM cat
 ID inválido retorna `400`; categoria inexistente ou de outro usuário retorna `404`. A chave estrangeira de `lancamentos.categoria_id` impede excluir uma categoria com lançamentos vinculados. Nessa situação, a API retorna `409` com mensagem explicativa, preservando a categoria e os lançamentos.
 
 O CRUD da Issue #7 está implementado e validado. A conclusão da Issue no fluxo da equipe depende da revisão, integração por PR e validação em `develop`. O restante do isolamento da Issue #6 continua dependendo dos demais recursos financeiros.
+
+## Listagem de fontes e destinos
+
+Envie `GET /fontes-destinos` com `Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN`. A resposta `200` contém apenas os registros do usuário autenticado. Sem registros, a resposta é `[]`.
+
+Use `?tipo=renda`, `?tipo=conta` ou `?tipo=cartao_credito` para filtrar. Um tipo inválido retorna `400`. Sem JWT válido, a resposta é `401`.
+
+## Criação de fontes e destinos
+
+Envie `POST /fontes-destinos` com o JWT do login e um JSON como `{"nome":"Conta corrente","tipo":"conta"}`. Para `cartao_credito`, inclua `dia_fechamento` e `dia_vencimento` como inteiros de 1 a 31 e `limite` como valor numérico de pelo menos um centavo.
+
+A criação retorna `201` com o registro criado. Dados inválidos retornam `400` e nome duplicado para o mesmo usuário retorna `409`, mesmo entre tipos diferentes.
+
+## Atualização de fontes e destinos
+
+Envie `PUT /fontes-destinos/:id` com o JWT e o JSON completo, seguindo as regras da criação. Ao mudar o tipo de cartão para conta ou renda, os campos de cartão são gravados como `null`.
+
+A atualização retorna `200` com os dados atualizados. Um registro inexistente ou de outro usuário retorna `404`. Dados inválidos retornam `400` e nome duplicado retorna `409`.
+
+## Exclusão de fontes e destinos
+
+Envie `DELETE /fontes-destinos/:id` com o JWT. Se o registro pertencer ao usuário autenticado e não tiver lançamentos vinculados, a resposta é `204` sem corpo.
+
+Um ID inválido retorna `400`. Um registro inexistente ou de outro usuário retorna `404`. Se houver lançamentos vinculados ao registro do usuário, o banco impede a exclusão e a API retorna `409`.
 
 ## Testes
 
