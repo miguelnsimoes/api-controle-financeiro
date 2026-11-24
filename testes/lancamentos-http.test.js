@@ -5,6 +5,20 @@ const jwt = require('jsonwebtoken');
 process.env.JWT_SECRET = 'segredo_ficticio_para_testes_de_lancamentos';
 const app = require('../server');
 const pool = require('../database/connection');
+const { dividirEmParcelas, validarLancamento } = require('../utils/validarLancamento');
+
+test('parcelamento preserva centavos e rejeita parcelas sem valor', () => {
+  assert.deepEqual(dividirEmParcelas(100, 3), [33.34, 33.33, 33.33]);
+  assert.deepEqual(dividirEmParcelas(0.48, 48), Array(48).fill(0.01));
+  const dados = {
+    tipo: 'saida', descricao: 'Compra', valor: 0.02,
+    data: '2026-11-24', categoriaId: 2, fonteDestinoId: 3,
+  };
+  for (const parcelas of [0, 49, 1.5, '3', null, 3]) {
+    assert.ok(validarLancamento({ ...dados, parcelas }, true).campos.parcelas);
+  }
+  assert.equal(validarLancamento({ ...dados, parcelas: 2 }, true).dados.parcelas, 2);
+});
 
 test('CRUD de lançamentos pelo HTTP com JWT e conexão MySQL simulada', async (t) => {
   const dados = {

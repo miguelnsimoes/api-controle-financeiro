@@ -29,20 +29,27 @@ router.get('/:id', async (req, res) => {
 });
 
 async function salvar(req, res) {
-  const { dados, campos } = validarLancamento(req.body);
+  const criacao = req.method === 'POST';
+  const { dados, campos } = validarLancamento(req.body, criacao);
   if (campos) return dadosInvalidos(res, campos);
 
   const resultado = await Lancamento.salvar(req.auth.id, dados, req.lancamentoId);
   if (resultado.ausente) return res.status(404).json({ erro: resultado.ausente });
   if (resultado.campos) return dadosInvalidos(res, resultado.campos);
-  return res.status(req.method === 'POST' ? 201 : 200).json(resultado.lancamento);
+  return res.status(criacao ? 201 : 200).json(resultado.lancamentos ?? resultado.lancamento);
 }
 
 router.post('/', salvar);
 router.put('/:id', salvar);
 
 router.delete('/:id', async (req, res) => {
-  const excluido = await Lancamento.excluir(req.lancamentoId, req.auth.id);
+  const { todasParcelas } = req.query;
+  if (todasParcelas !== undefined && !['true', 'false'].includes(todasParcelas)) {
+    return dadosInvalidos(res, { todasParcelas: 'Informe true ou false.' });
+  }
+  const excluido = todasParcelas === 'true'
+    ? await Lancamento.excluirGrupo(req.lancamentoId, req.auth.id)
+    : await Lancamento.excluir(req.lancamentoId, req.auth.id);
   if (!excluido) return res.status(404).json({ erro: 'Lançamento não encontrado.' });
   return res.status(204).end();
 });

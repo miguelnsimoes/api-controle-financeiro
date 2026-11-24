@@ -12,7 +12,14 @@ function dataValida(data) {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === data;
 }
 
-function validarLancamento(corpo) {
+function dividirEmParcelas(valor, quantidade) {
+  const centavos = Math.round(valor * 100);
+  const base = Math.floor(centavos / quantidade);
+  const resto = centavos % quantidade;
+  return Array.from({ length: quantidade }, (_, i) => (base + (i === 0 ? resto : 0)) / 100);
+}
+
+function validarLancamento(corpo, criacao = false) {
   const { tipo, descricao, valor, data, categoriaId, fonteDestinoId } = corpo || {};
   const campos = {};
   const descricaoLimpa = typeof descricao === 'string' ? descricao.trim() : '';
@@ -36,9 +43,19 @@ function validarLancamento(corpo) {
   if (!idValido(fonteDestinoId)) {
     campos.fonteDestinoId = 'Informe um identificador válido.';
   }
+  const parcelas = criacao ? corpo?.parcelas : undefined;
+  if (parcelas !== undefined) {
+    if (!Number.isInteger(parcelas) || parcelas < 1 || parcelas > 48) {
+      campos.parcelas = 'Informe um número inteiro de parcelas entre 1 e 48.';
+    } else if (!campos.valor && Math.round(valor * 100) < parcelas) {
+      campos.parcelas = 'O valor deve permitir pelo menos um centavo por parcela.';
+    }
+  }
   if (Object.keys(campos).length) return { campos };
 
-  return { dados: { tipo, descricao: descricaoLimpa, valor, data, categoriaId, fonteDestinoId } };
+  const dados = { tipo, descricao: descricaoLimpa, valor, data, categoriaId, fonteDestinoId };
+  if (parcelas !== undefined) dados.parcelas = parcelas;
+  return { dados };
 }
 
-module.exports = { idValido, validarLancamento };
+module.exports = { dividirEmParcelas, idValido, validarLancamento };
