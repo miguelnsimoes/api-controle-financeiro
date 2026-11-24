@@ -1,4 +1,6 @@
+const { randomUUID } = require('node:crypto');
 const pool = require('../database/connection');
+const { dividirEmParcelas } = require('../utils/validarLancamento');
 
 const selecionarLancamentos = `
   SELECT l.id, l.tipo, l.descricao, l.valor, l.data,
@@ -40,13 +42,15 @@ class Lancamento {
     return linha ? formatarLancamento(linha) : null;
   }
 
-  async salvar(usuarioId, { tipo, descricao, valor, data, categoriaId, fonteDestinoId }, id) {
+  async salvar(usuarioId, { tipo, descricao, valor, data, categoriaId, fonteDestinoId, parcelas }, id) {
     const conexao = await pool.promise().getConnection();
     try {
       await conexao.beginTransaction();
+      let existente;
       if (id !== undefined) {
-        const [[existente]] = await conexao.execute(
-          'SELECT id FROM lancamentos WHERE id = ? AND usuario_id = ? FOR UPDATE',
+        [[existente]] = await conexao.execute(
+          `SELECT grupo_parcelamento, data, valor, fonte_destino_id
+           FROM lancamentos WHERE id = ? AND usuario_id = ? FOR UPDATE`,
           [id, usuarioId],
         );
         if (!existente) {
@@ -60,7 +64,7 @@ class Lancamento {
         [categoriaId, usuarioId],
       );
       const [[fonteDestino]] = await conexao.execute(
-        'SELECT id FROM fontes_destinos WHERE id = ? AND usuario_id = ? FOR SHARE',
+        'SELECT tipo FROM fontes_destinos WHERE id = ? AND usuario_id = ? FOR SHARE',
         [fonteDestinoId, usuarioId],
       );
       if (!categoria || !fonteDestino) {
@@ -70,6 +74,43 @@ class Lancamento {
       if (categoria.tipo !== tipo) {
         await conexao.rollback();
         return { campos: { categoriaId: 'O tipo da categoria deve ser igual ao do lançamento.' } };
+      }
+      const grupoExistente = existente?.grupo_parcelamento;
+      if (grupoExistente) {
+        const campos = {};
+        if (data !== existente.data) campos.data = 'A data original da compra parcelada deve ser mantida.';
+        if (valor !== Number(existente.valor)) campos.valor = 'O valor da parcela deve ser mantido.';
+        if (fonteDestinoId !== existente.fonte_destino_id) {
+          campos.fonteDestinoId = 'O cartão da compra parcelada deve ser mantido.';
+        }
+        if (Object.keys(campos).length) {
+          await conexao.rollback();
+          return { campos };
+        }
+      }
+      if ((parcelas !== undefined || grupoExistente) && (fonteDestino.tipo !== 'cartao_credito' || tipo !== 'saida')) {
+        await conexao.rollback();
+        const campo = grupoExistente ? 'fonteDestinoId' : 'parcelas';
+        return { campos: { [campo]: 'O parcelamento exige uma saída vinculada a um cartão de crédito.' } };
+      }
+
+      if (parcelas !== undefined) {
+        const grupo = randomUUID();
+        const valoresParcelas = dividirEmParcelas(valor, parcelas);
+        const lancamentos = [];
+        for (const [indice, valorParcela] of valoresParcelas.entries()) {
+          const [resultado] = await conexao.execute(
+            `INSERT INTO lancamentos
+               (tipo, descricao, valor, data, categoria_id, fonte_destino_id, usuario_id,
+                parcela_atual, total_parcelas, grupo_parcelamento)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [tipo, descricao, valorParcela, data, categoriaId, fonteDestinoId, usuarioId,
+              indice + 1, parcelas, grupo],
+          );
+          lancamentos.push(await this.buscarPorId(resultado.insertId, usuarioId, conexao));
+        }
+        await conexao.commit();
+        return { lancamentos };
       }
 
       const valores = [tipo, descricao, valor, data, categoriaId, fonteDestinoId];
@@ -106,6 +147,20 @@ class Lancamento {
       'DELETE FROM lancamentos WHERE id = ? AND usuario_id = ?',
       [id, usuarioId],
     );
+    return resultado.affectedRows > 0;
+  }
+
+  async excluirGrupo(id, usuarioId) {
+    const sql = `DELETE parcela FROM lancamentos parcela
+                 JOIN lancamentos origem ON origem.usuario_id = parcela.usuario_id
+                   AND (origem.id = parcela.id OR origem.grupo_parcelamento = parcela.grupo_parcelamento)
+                 WHERE origem.id = ? AND origem.usuario_id = ?`;
+    const executar = () => pool.promise().execute(sql, [id, usuarioId]);
+    const [resultado] = await executar().catch((error) => {
+      // O InnoDB desfaz a exclusão inteira quando escolhe esta operação como vítima.
+      if (error.code !== 'ER_LOCK_DEADLOCK') throw error;
+      return executar();
+    });
     return resultado.affectedRows > 0;
   }
 }
