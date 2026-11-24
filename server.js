@@ -14,6 +14,7 @@ app.use('/auth', require('./routes/auth'));
 app.use(['/categorias', '/fontes-destinos', '/lancamentos', '/relatorios'], protegerRota);
 app.use('/categorias', require('./routes/categorias'));
 app.use('/fontes-destinos', require('./routes/fontes-destinos'));
+app.use('/lancamentos', require('./routes/lancamentos'));
 app.use('/relatorios', require('./routes/relatorios'));
 
 app.use((req, res) => {
