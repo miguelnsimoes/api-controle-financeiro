@@ -7,11 +7,14 @@ const { randomUUID } = require('node:crypto');
 
 // Execute com TESTE_MYSQL_REAL=1 e DB_HOST, DB_USER e DB_PASSWORD de uma instância de testes.
 test('lançamentos por HTTP com MySQL real', { skip: process.env.TESTE_MYSQL_REAL !== '1' }, async (t) => {
+  assert.ok(process.env.DB_USER, 'Configure DB_USER da instância MySQL isolada.');
+  process.env.DB_HOST ||= '127.0.0.1';
+  process.env.DB_PASSWORD ??= '';
   const schema = 'teste_parcelamento_' + randomUUID().replaceAll('-', '');
   process.env.DB_NAME = schema;
   process.env.JWT_SECRET = 'segredo_ficticio_para_teste_mysql';
   const db = await mysql.createConnection({
-    host: process.env.DB_HOST || '127.0.0.1',
+    host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     multipleStatements: true,
@@ -19,8 +22,11 @@ test('lançamentos por HTTP com MySQL real', { skip: process.env.TESTE_MYSQL_REA
   const app = require('../server');
   const pool = require('../database/connection');
   let server;
+  let schemaCriado = false;
   try {
    const [[{version}]] = await db.query('SELECT VERSION() AS version');
+   await db.query('CREATE DATABASE ??', [schema]);
+   schemaCriado = true;
    await db.query(fs.readFileSync(require.resolve('../database/schema.sql'), 'utf8').replaceAll('api_financas', schema));
    await db.query("INSERT INTO usuarios(nome,email,cpf,senha_hash) VALUES ('A','a@example.com','11111111111','ficticio'),('B','b@example.com','22222222222','ficticio')");
    await db.query("INSERT INTO categorias(usuario_id,nome,tipo) VALUES (1,'Compras','saida'),(2,'Compras','saida')");
@@ -246,7 +252,7 @@ test('lançamentos por HTTP com MySQL real', { skip: process.env.TESTE_MYSQL_REA
     if (server) await new Promise(resolve=>server.close(resolve));
     await pool.promise().end();
     try {
-      await db.query('DROP DATABASE IF EXISTS ??', [schema]);
+      if (schemaCriado) await db.query('DROP DATABASE ??', [schema]);
     } finally {
       await db.end();
     }
