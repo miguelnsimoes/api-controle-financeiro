@@ -6,7 +6,7 @@ const { test } = require('node:test');
 const { randomUUID } = require('node:crypto');
 
 // Execute com TESTE_MYSQL_REAL=1 e DB_HOST, DB_USER e DB_PASSWORD de uma instância de testes.
-test('parcelamento por HTTP com MySQL real', { skip: process.env.TESTE_MYSQL_REAL !== '1' }, async () => {
+test('lançamentos por HTTP com MySQL real', { skip: process.env.TESTE_MYSQL_REAL !== '1' }, async (t) => {
   const schema = 'teste_parcelamento_' + randomUUID().replaceAll('-', '');
   process.env.DB_NAME = schema;
   process.env.JWT_SECRET = 'segredo_ficticio_para_teste_mysql';
@@ -47,7 +47,8 @@ test('parcelamento por HTTP com MySQL real', { skip: process.env.TESTE_MYSQL_REA
    await req('GET','/'+simples.id,404,undefined,2);
    await req('PUT','/'+simples.id,404,data,2);
    await req('DELETE','/'+simples.id,404,undefined,2);
-   assert.deepEqual(await req('GET','',200,undefined,2),[]);
+   const periodoCompra = '?inicio=2028-02-29&fim=2028-02-29';
+   assert.deepEqual((await req('GET',periodoCompra,200,undefined,2)).itens,[]);
    await req('DELETE','/'+simples.id+'?todasParcelas=true',204);
    for (const parcelas of [0,49,1.5,'3',null]) await req('POST','',400,{...data,parcelas});
    await req('POST','',400,{...data,valor:0.02,parcelas:3});
@@ -76,10 +77,10 @@ test('parcelamento por HTTP com MySQL real', { skip: process.env.TESTE_MYSQL_REA
    await req('DELETE','/'+parcelas[0].id+'?todasParcelas=true',404,undefined,2);
    await req('DELETE','/'+parcelas[0].id+'?todasParcelas=x',400);
    await req('DELETE','/'+parcelas[0].id+'?todasParcelas=false',204);
-   assert.equal((await req('GET','',200)).length,2);
+   assert.equal((await req('GET',periodoCompra,200)).itens.length,2);
    await req('DELETE','/'+parcelas[1].id+'?todasParcelas=true',204);
-   assert.deepEqual(await req('GET','',200),[]);
-   assert.equal((await req('GET','',200,undefined,2)).length,1);
+   assert.deepEqual((await req('GET',periodoCompra,200)).itens,[]);
+   assert.equal((await req('GET',periodoCompra,200,undefined,2)).itens.length,1);
    await req('DELETE','/'+outro[0].id+'?todasParcelas=true',204,undefined,2);
    const max = await req('POST','',201,{...data,valor:0.48,parcelas:48});
    assert.equal(max.length,48);
@@ -89,7 +90,7 @@ test('parcelamento por HTTP com MySQL real', { skip: process.env.TESTE_MYSQL_REA
    const [grupos] = await db.query('SELECT COUNT(DISTINCT grupo_parcelamento) AS total FROM lancamentos');
    assert.equal(grupos[0].total,2);
    await req('DELETE','/'+concorrentes[0][0].id+'?todasParcelas=true',204);
-   assert.equal((await req('GET','',200)).length,4);
+   assert.equal((await req('GET',periodoCompra,200)).itens.length,4);
    await req('DELETE','/'+concorrentes[1][0].id+'?todasParcelas=true',204);
   const corrida = await req('POST', '', 201, {...data, parcelas: 3});
   const statusExclusoes = await Promise.all([
@@ -97,11 +98,84 @@ test('parcelamento por HTTP com MySQL real', { skip: process.env.TESTE_MYSQL_REA
     req('DELETE', '/' + corrida[1].id + '?todasParcelas=true', [204, 404]),
   ]);
   assert.deepEqual(statusExclusoes.sort(), [204, 404]);
-  assert.deepEqual(await req('GET', '', 200), []);
+  assert.deepEqual((await req('GET', periodoCompra, 200)).itens, []);
    await db.query("CREATE TRIGGER falhar_segunda_parcela BEFORE INSERT ON lancamentos FOR EACH ROW BEGIN IF NEW.parcela_atual = 2 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Falha de teste'; END IF; END");
    assert.deepEqual(await req('POST','',500,{...data,parcelas:3}),{erro:'Erro interno do servidor.'});
    const [[{total}]] = await db.query('SELECT COUNT(*) AS total FROM lancamentos');
    assert.equal(total,0);
+   await db.query('DROP TRIGGER falhar_segunda_parcela');
+   await t.test('combina filtros, pagina e calcula os totais exatos de todos os resultados', async () => {
+     const agora = new Date();
+     const ano = agora.getUTCFullYear();
+     const mes = agora.getUTCMonth();
+     const inicio = agora.toISOString().slice(0, 7) + '-01';
+     const fim = new Date(Date.UTC(ano, mes + 1, 0)).toISOString().slice(0, 10);
+     const anterior = new Date(Date.UTC(ano, mes, 0)).toISOString().slice(0, 10);
+     await db.query("INSERT INTO categorias(usuario_id,nome,tipo) VALUES (1,'Receita','entrada'),(1,'Outra despesa','saida')");
+     const compra = { ...data, data: inicio, valor: 2.3, parcelas: 23 };
+     const parcelasDoMes = await req('POST', '', 201, compra);
+     await req('POST', '', 201, { ...data, data: fim, tipo: 'entrada', categoriaId: 3, fonteDestinoId: 3, valor: 0.3 });
+     await req('POST', '', 201, { ...data, data: inicio, fonteDestinoId: 3, valor: 0.2 });
+     await req('POST', '', 201, { ...data, data: inicio, categoriaId: 4, valor: 0.1 });
+     await req('POST', '', 201, { ...data, data: anterior, valor: 100 });
+     await req('POST', '', 201, { ...data, data: inicio, categoriaId: 2, fonteDestinoId: 2, valor: 200 }, 2);
+
+     const padrao = await req('GET', '?usuarioId=2', 200);
+     assert.deepEqual(padrao.periodo, { inicio, fim });
+     assert.deepEqual(padrao.resumo, { entradas: 0.3, saidas: 2.6, saldo: -2.3 });
+     assert.equal(padrao.itens.length, 20);
+     const filtros = '?inicio=' + inicio + '&fim=' + fim + '&tipo=saida&categoriaId=1&fonteDestinoId=1';
+     const primeira = await req('GET', filtros, 200);
+     const segunda = await req('GET', filtros + '&pagina=2', 200);
+     const fora = await req('GET', filtros + '&pagina=3', 200);
+     assert.equal(primeira.pagina, 1);
+     assert.equal(segunda.pagina, 2);
+     assert.equal(fora.pagina, 3);
+     assert.deepEqual([primeira.totalPaginas, segunda.totalPaginas, fora.totalPaginas], [2, 2, 2]);
+     assert.deepEqual([primeira.itens.length, segunda.itens.length, fora.itens.length], [20, 3, 0]);
+     assert.deepEqual(primeira.resumo, { entradas: 0, saidas: 2.3, saldo: -2.3 });
+     assert.deepEqual(segunda.resumo, primeira.resumo);
+     assert.deepEqual(fora.resumo, primeira.resumo);
+     const ultimaPaginaValida = await req('GET', filtros + '&pagina=' + Number.MAX_SAFE_INTEGER, 200);
+     assert.equal(ultimaPaginaValida.pagina, Number.MAX_SAFE_INTEGER);
+     assert.equal(ultimaPaginaValida.totalPaginas, 2);
+     assert.deepEqual(ultimaPaginaValida.itens, []);
+     assert.deepEqual(ultimaPaginaValida.resumo, primeira.resumo);
+     assert.deepEqual([...primeira.itens, ...segunda.itens].map(item => item.id), parcelasDoMes.map(item => item.id).reverse());
+     assert.equal(segunda.itens[2].parcela, '1/23');
+
+     assert.deepEqual((await req('GET', '?fim=' + anterior, 200)).periodo, { inicio: null, fim: anterior });
+     assert.equal((await req('GET', '?fim=' + anterior, 200)).resumo.saidas, 100);
+     assert.deepEqual((await req('GET', '?inicio=' + inicio, 200)).periodo, { inicio, fim: null });
+     assert.equal((await req('GET', '?tipo=entrada', 200)).resumo.entradas, 0.3);
+     assert.equal((await req('GET', '?categoriaId=4', 200)).resumo.saidas, 0.1);
+     assert.equal((await req('GET', '?fonteDestinoId=3', 200)).resumo.saldo, 0.1);
+     const vazio = await req('GET', '?tipo=entrada&categoriaId=4', 200);
+     assert.deepEqual(vazio.resumo, { entradas: 0, saidas: 0, saldo: 0 });
+     assert.equal(vazio.totalPaginas, 0);
+     assert.deepEqual(vazio.itens, []);
+     assert.equal((await req('GET', '', 200, undefined, 2)).resumo.saidas, 200);
+     const dataValoresAltos = new Date(Date.UTC(ano, mes - 2, 1)).toISOString().slice(0, 10);
+     await req('POST', '', 201, { ...data, data: dataValoresAltos, valor: 9999999999.98 });
+     await req('POST', '', 201, {
+       ...data, data: dataValoresAltos, tipo: 'entrada', categoriaId: 3, valor: 9999999999.99,
+     });
+     const valoresAltos = await req('GET', '?inicio=' + dataValoresAltos + '&fim=' + dataValoresAltos, 200);
+     assert.deepEqual(valoresAltos.resumo, { entradas: 9999999999.99, saidas: 9999999999.98, saldo: 0.01 });
+     await req('GET', '?categoriaId=2', 404);
+     await req('GET', '?fonteDestinoId=2', 404);
+     await req('GET', '?categoriaId=999', 404);
+     for (const query of [
+       '?pagina=0', '?pagina=1&pagina=2', '?pagina=1.5', '?pagina=9007199254740992',
+       '?tipo=entrada%27%20OR%201%3D1', '?categoriaId=1%20OR%201%3D1',
+       '?fonteDestinoId=-1', '?inicio=2027-02-29', '?fim=',
+       '?inicio=2028-03-01&fim=2028-02-29',
+     ]) {
+       const erro = await req('GET', query, 400);
+       assert.equal(erro.erro, 'Dados inválidos.');
+       assert.equal(Object.keys(erro.campos).length, 1);
+     }
+   });
    console.log('MySQL '+version+': CRUD, JWT, isolamento, validacoes, 1/3/48 parcelas, UUID, datas, exclusoes e rollback confirmados.');
   } finally {
     if (server) await new Promise(resolve=>server.close(resolve));

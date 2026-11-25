@@ -1,6 +1,6 @@
 const express = require('express');
 const Lancamento = require('../models/Lancamento');
-const { idValido, validarLancamento } = require('../utils/validarLancamento');
+const { idValido, validarFiltrosLancamentos, validarLancamento } = require('../utils/validarLancamento');
 
 const router = express.Router();
 const mensagemIdInvalido = 'Informe um identificador válido.';
@@ -19,7 +19,11 @@ router.param('id', (req, res, next, parametro) => {
 });
 
 router.get('/', async (req, res) => {
-  return res.json(await Lancamento.listar(req.auth.id));
+  const { filtros, campos } = validarFiltrosLancamentos(req.query);
+  if (campos) return dadosInvalidos(res, campos);
+  const resultado = await Lancamento.listar(req.auth.id, filtros);
+  if (resultado.ausente) return res.status(404).json({ erro: resultado.ausente });
+  return res.json(resultado);
 });
 
 router.get('/:id', async (req, res) => {
