@@ -5,7 +5,19 @@ const jwt = require('jsonwebtoken');
 process.env.JWT_SECRET = 'segredo_ficticio_para_testes_de_lancamentos';
 const app = require('../server');
 const pool = require('../database/connection');
-const { dividirEmParcelas, validarLancamento } = require('../utils/validarLancamento');
+const { dividirEmParcelas, validarFiltrosLancamentos, validarLancamento } = require('../utils/validarLancamento');
+
+test('o mês padrão em UTC cobre fevereiro bissexto e a virada do ano', () => {
+  const casos = [
+    ['2028-02-29T23:59:59Z', '2028-02-01', '2028-02-29'],
+    ['2028-03-01T00:00:00Z', '2028-03-01', '2028-03-31'],
+    ['2029-01-01T00:00:00Z', '2029-01-01', '2029-01-31'],
+  ];
+  for (const [agora, inicio, fim] of casos) {
+    const { filtros } = validarFiltrosLancamentos({}, new Date(agora));
+    assert.deepEqual([filtros.inicio, filtros.fim, filtros.pagina], [inicio, fim, 1]);
+  }
+});
 
 test('parcelamento preserva centavos e rejeita parcelas sem valor', () => {
   assert.deepEqual(dividirEmParcelas(100, 3), [33.34, 33.33, 33.33]);
@@ -36,6 +48,15 @@ test('CRUD de lançamentos pelo HTTP com JWT e conexão MySQL simulada', async (
     release: () => eventos.push('release'),
     async execute(sql, parametros) {
       totalConsultas += 1;
+      if (sql.startsWith('WITH filtrados')) {
+        assert.match(sql, /l.usuario_id = \?/);
+        const registro = parametros[0] === 42 ? linha : undefined;
+        return [[{
+          ...(registro || { id: null }), quantidade: registro ? 1 : 0,
+          entradas: '0.00', saidas: registro ? '25.75' : '0.00', saldo: registro ? '-25.75' : '0.00',
+          categoria_valida: 1, fonte_destino_valida: 1,
+        }]];
+      }
       if (sql.includes('FROM categorias WHERE')) {
         assert.match(sql, /id = \? AND usuario_id = \? FOR SHARE/);
         return [parametros.join() === '2,42' ? [{ tipo: 'saida' }] : []];
@@ -105,6 +126,17 @@ test('CRUD de lançamentos pelo HTTP com JWT e conexão MySQL simulada', async (
   assert.deepEqual((await requisicao('POST', '', 42, {
     tipo: 'renda', descricao: ' ', valor: '25.75', data: '2026-02-29', categoriaId: 0,
   })).status, 400);
+  for (const [query, campo] of [
+    ['?pagina=1&pagina=2', 'pagina'],
+    ['?inicio=2028-03-01&fim=2028-02-29', 'fim'],
+    ['?tipo=desconhecido', 'tipo'],
+    ['?categoriaId=1e2', 'categoriaId'],
+    ['?fonteDestinoId=0', 'fonteDestinoId'],
+  ]) {
+    const rejeitado = await requisicao('GET', query);
+    assert.equal(rejeitado.status, 400);
+    assert.deepEqual(Object.keys(rejeitado.corpo.campos), [campo]);
+  }
   assert.deepEqual(eventos, []);
   assert.equal(totalConsultas, 0);
 
@@ -127,9 +159,16 @@ test('CRUD de lançamentos pelo HTTP com JWT e conexão MySQL simulada', async (
     categoria: { id: 2, nome: 'Alimentação' }, fonteDestino: { id: 3, nome: 'Conta' }, parcela: '1/1',
   });
   assert.deepEqual(eventos.splice(0), ['begin', 'commit', 'release']);
-  assert.deepEqual(await requisicao('GET', '?usuarioId=99'), { status: 200, corpo: [criado.corpo] });
+  assert.deepEqual(await requisicao('GET', '?inicio=2028-02-29&fim=2028-02-29&usuarioId=99'), {
+    status: 200,
+    corpo: {
+      periodo: { inicio: '2028-02-29', fim: '2028-02-29' },
+      resumo: { entradas: 0, saidas: 25.75, saldo: -25.75 },
+      pagina: 1, totalPaginas: 1, itens: [criado.corpo],
+    },
+  });
   assert.deepEqual(await requisicao('GET', '/1'), { status: 200, corpo: criado.corpo });
-  assert.deepEqual(await requisicao('GET', '?usuarioId=42', 99), { status: 200, corpo: [] });
+  assert.deepEqual((await requisicao('GET', '?usuarioId=42', 99)).corpo.itens, []);
   assert.equal((await requisicao('GET', '/1', 99)).status, 404);
   assert.equal((await requisicao('PUT', '/1', 99, dados)).status, 404);
   assert.equal((await requisicao('DELETE', '/1', 99)).status, 404);

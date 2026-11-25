@@ -19,6 +19,44 @@ function dividirEmParcelas(valor, quantidade) {
   return Array.from({ length: quantidade }, (_, i) => (base + (i === 0 ? resto : 0)) / 100);
 }
 
+function validarFiltrosLancamentos(query, agora = new Date()) {
+  let { inicio = null, fim = null } = query;
+  const { tipo = null, pagina: paginaInformada = '1' } = query;
+  const pagina = Number(paginaInformada);
+  const campos = {};
+
+  if (inicio !== null && !dataValida(inicio)) campos.inicio = 'Informe uma data válida no formato AAAA-MM-DD.';
+  if (fim !== null && !dataValida(fim)) campos.fim = 'Informe uma data válida no formato AAAA-MM-DD.';
+  if (inicio && fim && !campos.inicio && !campos.fim && inicio > fim) {
+    campos.fim = 'A data final deve ser igual ou posterior à inicial.';
+  }
+  if (tipo !== null && !['entrada', 'saida'].includes(tipo)) campos.tipo = 'O tipo deve ser entrada ou saida.';
+  if (typeof paginaInformada !== 'string' || !/^\d+$/.test(paginaInformada)
+      || !Number.isSafeInteger(pagina) || pagina < 1) {
+    campos.pagina = 'Informe um número de página inteiro positivo válido.';
+  }
+
+  const ids = { categoriaId: null, fonteDestinoId: null };
+  for (const campo of Object.keys(ids)) {
+    const valor = query[campo];
+    if (valor === undefined) continue;
+    if (typeof valor !== 'string' || !/^\d+$/.test(valor) || !idValido(Number(valor))) {
+      campos[campo] = 'Informe um identificador válido.';
+    } else {
+      ids[campo] = Number(valor);
+    }
+  }
+  if (Object.keys(campos).length) return { campos };
+
+  if (inicio === null && fim === null) {
+    const ano = agora.getUTCFullYear();
+    const mes = agora.getUTCMonth();
+    inicio = agora.toISOString().slice(0, 7) + '-01';
+    fim = new Date(Date.UTC(ano, mes + 1, 0)).toISOString().slice(0, 10);
+  }
+  return { filtros: { inicio, fim, tipo, ...ids, pagina } };
+}
+
 function validarLancamento(corpo, criacao = false) {
   const { tipo, descricao, valor, data, categoriaId, fonteDestinoId } = corpo || {};
   const campos = {};
@@ -58,4 +96,4 @@ function validarLancamento(corpo, criacao = false) {
   return { dados };
 }
 
-module.exports = { dividirEmParcelas, idValido, validarLancamento };
+module.exports = { dividirEmParcelas, idValido, validarFiltrosLancamentos, validarLancamento };

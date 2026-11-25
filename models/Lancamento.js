@@ -1,6 +1,7 @@
 const { randomUUID } = require('node:crypto');
 const pool = require('../database/connection');
 const { dividirEmParcelas } = require('../utils/validarLancamento');
+const itensPorPagina = 20;
 
 const selecionarLancamentos = `
   SELECT l.id, l.tipo, l.descricao, l.valor, l.data,
@@ -26,12 +27,61 @@ function formatarLancamento(linha) {
 }
 
 class Lancamento {
-  async listar(usuarioId) {
+  async listar(usuarioId, { inicio, fim, tipo, categoriaId, fonteDestinoId, pagina }) {
+    const condicoes = ['l.usuario_id = ?'];
+    const parametros = [usuarioId];
+    for (const [condicao, valor] of [
+      ['l.data >= ?', inicio],
+      ['l.data <= ?', fim],
+      ['l.tipo = ?', tipo],
+      ['l.categoria_id = ?', categoriaId],
+      ['l.fonte_destino_id = ?', fonteDestinoId],
+    ]) {
+      if (valor === null) continue;
+      condicoes.push(condicao);
+      parametros.push(valor);
+    }
+
+    const deslocamento = BigInt(pagina - 1) * BigInt(itensPorPagina);
     const [linhas] = await pool.promise().execute(
-      selecionarLancamentos + ' WHERE l.usuario_id = ? ORDER BY l.data DESC, l.id DESC',
-      [usuarioId],
+      `WITH filtrados AS (
+         ${selecionarLancamentos} WHERE ${condicoes.join(' AND ')}
+       ), totais AS (
+         SELECT COUNT(*) AS quantidade,
+                COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END), 0) AS entradas,
+                COALESCE(SUM(CASE WHEN tipo = 'saida' THEN valor ELSE 0 END), 0) AS saidas
+         FROM filtrados
+       ), itens AS (
+         SELECT * FROM filtrados ORDER BY data DESC, id DESC LIMIT ${itensPorPagina} OFFSET ?
+       )
+       SELECT itens.*, totais.quantidade, totais.entradas, totais.saidas,
+              totais.entradas - totais.saidas AS saldo,
+              (? IS NULL OR EXISTS (
+                 SELECT 1 FROM categorias WHERE id = ? AND usuario_id = ?
+              )) AS categoria_valida,
+              (? IS NULL OR EXISTS (
+                 SELECT 1 FROM fontes_destinos WHERE id = ? AND usuario_id = ?
+              )) AS fonte_destino_valida
+       FROM totais LEFT JOIN itens ON TRUE
+       ORDER BY itens.data DESC, itens.id DESC`,
+      [...parametros, deslocamento.toString(),
+        categoriaId, categoriaId, usuarioId, fonteDestinoId, fonteDestinoId, usuarioId],
     );
-    return linhas.map(formatarLancamento);
+    const total = linhas[0];
+    if (!total.categoria_valida) return { ausente: 'Categoria não encontrada.' };
+    if (!total.fonte_destino_valida) return { ausente: 'Fonte ou destino não encontrado.' };
+
+    return {
+      periodo: { inicio, fim },
+      resumo: {
+        entradas: Number(total.entradas),
+        saidas: Number(total.saidas),
+        saldo: Number(total.saldo),
+      },
+      pagina,
+      totalPaginas: Math.ceil(total.quantidade / itensPorPagina),
+      itens: total.id === null ? [] : linhas.map(formatarLancamento),
+    };
   }
 
   async buscarPorId(id, usuarioId, conexao = pool.promise()) {
