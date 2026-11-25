@@ -1,26 +1,36 @@
-# API Controle Financeiro
 
-Projeto acadêmico de uma API REST para gerenciamento financeiro pessoal. Estão implementados o servidor Express, o banco MySQL, o cadastro de usuários com dados padrão e o login com JWT.
+# API de Controle Financeiro
 
-## Tecnologias
+Projeto acadêmico desenvolvido para a disciplina de Programação Web Back-end, com o objetivo de disponibilizar uma API REST para gerenciamento financeiro pessoal.
 
-- Node.js com CommonJS (`require` / `module.exports`).
-- Express para o servidor HTTP.
-- MySQL com o driver mysql2 para conexão com o banco de dados.
-- bcrypt para proteger as senhas com hash.
-- jsonwebtoken para emitir tokens de login.
-- express-jwt para validar tokens nas rotas protegidas.
-- dotenv para carregar variáveis de ambiente.
-- nodemon para reiniciar o servidor durante o desenvolvimento.
+A aplicação permite cadastrar usuários, autenticar acessos, gerenciar categorias, fontes e destinos financeiros, registrar movimentações, parcelar compras e gerar relatórios financeiros.
+
+Todos os recursos financeiros são protegidos por JWT e possuem isolamento de dados entre usuários.
+
+## Tecnologias utilizadas
+
+- Node.js — ambiente de execução JavaScript.
+- Express — desenvolvimento da API REST.
+- MySQL — banco de dados relacional.
+- mysql2 — integração com o banco de dados.
+- bcrypt — proteção de senhas por hash.
+- jsonwebtoken — geração de tokens JWT.
+- express-jwt — autenticação das rotas protegidas.
+- dotenv — gerenciamento de variáveis de ambiente.
+- nodemon — reinicialização automática durante o desenvolvimento.
+- Node Test Runner — testes automatizados.
 
 ## Pré-requisitos
 
-- Node.js 18 ou superior, compatível com Express 5 (preferencialmente uma versão LTS com suporte).
+- Node.js 18 ou superior, preferencialmente uma versão LTS com suporte.
 - npm.
-- MySQL 8.0.16 ou superior em execução (validado localmente no MySQL 8.4.13).
-- Git para clonar o repositório.
+- MySQL 8.0.16 ou superior.
+- Git.
+- Cliente HTTP, como Postman, Insomnia, Thunder Client ou curl.
 
 ## Instalação
+
+Clone o repositório e instale as dependências:
 
 ```bash
 git clone https://github.com/miguelnsimoes/api-controle-financeiro.git
@@ -30,7 +40,9 @@ npm ci
 
 ## Variáveis de ambiente
 
-Copie `.env.example` para `.env` na raiz do projeto. No PowerShell:
+Crie o arquivo `.env` a partir do `.env.example`.
+
+No Windows (PowerShell):
 
 ```powershell
 Copy-Item .env.example .env
@@ -42,41 +54,175 @@ No Linux ou macOS:
 cp .env.example .env
 ```
 
-Ajuste os valores locais. `PORT` define a porta HTTP, com fallback para `3000` quando ausente. `DB_HOST`, `DB_USER`, `DB_PASSWORD` e `DB_NAME` configuram a conexão MySQL. Use `DB_NAME=api_financas` e informe um usuário e senha válidos do seu MySQL local. Defina `JWT_SECRET` com um segredo local para assinar os tokens de login; não versione esse segredo.
+Caso o arquivo `.env` já exista, preserve suas configurações.
 
-O arquivo de exemplo contém valores fictícios. Não versione o `.env` nem credenciais reais.
+Configure as seguintes variáveis:
 
-## Preparação do banco
+```dotenv
+PORT=3000
+DB_HOST=127.0.0.1
+DB_USER=usuario_exemplo
+DB_PASSWORD=senha_exemplo
+DB_NAME=api_financas
+JWT_SECRET=substitua_por_um_segredo_seguro
+```
 
-Se o banco ainda não tiver sido criado, abra o cliente MySQL com seu usuário a partir da raiz do projeto e execute:
+Os valores apresentados são fictícios e devem ser substituídos pelas configurações locais.
+
+O arquivo `.env` não deve ser versionado.
+
+## Configuração do banco de dados
+
+Certifique-se de que o MySQL esteja em execução.
+
+Na raiz do projeto, acesse o cliente MySQL utilizando um usuário com as permissões necessárias:
+
+```bash
+mysql -h 127.0.0.1 -u root -p
+```
+
+Execute o script de criação:
 
 ```sql
 SOURCE database/schema.sql;
 ```
 
-O script cria `api_financas` e suas quatro tabelas. Execute-o somente na criação inicial: ele não recria ou atualiza tabelas existentes.
+O script cria o banco `api_financas` e suas quatro tabelas:
 
-## Execução
+- `usuarios`
+- `categorias`
+- `fontes_destinos`
+- `lancamentos`
 
-Iniciar o servidor:
+O schema utiliza chaves estrangeiras, restrições UNIQUE, restrições CHECK e índices para garantir integridade e auxiliar nas consultas.
 
-```bash
-npm start
+Execute o script somente em um banco novo, pois as tabelas não são recriadas automaticamente.
+
+### Dados de demonstração
+
+Para popular um banco recém-criado com dados fictícios:
+
+```sql
+USE api_financas;
+SOURCE database/seed.sql;
 ```
 
-Iniciar em desenvolvimento, com reinicialização automática:
+O seed disponibiliza dois usuários, movimentações de três meses, categorias, contas, cartões de crédito e compras parceladas.
+
+| Usuário | E-mail | Senha de demonstração |
+| --- | --- | --- |
+| A | demo.a@example.test | DemoFinancas123 |
+| B | demo.b@example.test | DemoFinancas123 |
+
+Essas credenciais são exclusivamente destinadas à demonstração.
+
+Execute o seed apenas uma vez em um banco novo. Para reproduzir os resultados do roteiro de demonstração, utilize-o no mesmo dia UTC em que os dados foram carregados.
+
+## Executando a aplicação
+
+Modo de desenvolvimento:
 
 ```bash
 npm run dev
 ```
 
-O terminal exibirá `Conexão com MySQL estabelecida.` e depois `Servidor iniciado na porta 3000` ou a porta configurada em `PORT`. O servidor HTTP inicia após a confirmação da conexão. Se a conexão falhar, o processo encerra com código 1 e informa o código do erro MySQL, sem exibir credenciais. Confira o serviço MySQL, o banco criado e as variáveis do `.env`. Para encerrar, pressione `Ctrl+C`.
+Modo normal:
 
-A rota `/` permanece sem implementação e retorna HTTP 404. A rota de cadastro está descrita abaixo.
+```bash
+npm start
+```
 
-## Cadastro de usuários
+A aplicação verifica a conexão com o MySQL antes de iniciar o servidor HTTP.
 
-Envie `POST /auth/cadastro` com `Content-Type: application/json`:
+Endereço padrão:
+
+```text
+http://localhost:3000
+```
+
+Caso a conexão falhe, confira as configurações do `.env`, a disponibilidade do MySQL e a existência do banco.
+
+No PowerShell, caso a execução de `npm.ps1` esteja bloqueada, utilize `npm.cmd` no lugar de `npm`.
+
+## Estrutura do projeto
+
+```text
+api-controle-financeiro/
+├── database/
+│   ├── connection.js
+│   ├── schema.sql
+│   └── seed.sql
+├── docs/
+│   ├── escopo-projeto.md
+│   └── guia-contribuicao.md
+├── middleware/
+│   └── auth.js
+├── models/
+│   ├── Categoria.js
+│   ├── FonteDestino.js
+│   ├── Lancamento.js
+│   ├── Relatorio.js
+│   └── Usuario.js
+├── routes/
+│   ├── auth.js
+│   ├── categorias.js
+│   ├── fontes-destinos.js
+│   ├── lancamentos.js
+│   └── relatorios.js
+├── testes/
+│   ├── arquivos de testes automatizados
+│   └── requisicoes.md
+├── utils/
+│   ├── cpf.js
+│   ├── faturas.js
+│   └── validarLancamento.js
+├── .env.example
+├── .gitignore
+├── AGENTS.md
+├── package.json
+├── package-lock.json
+├── README.md
+└── server.js
+```
+
+### Organização da aplicação
+
+- `database/`: conexão, estrutura e dados iniciais do banco.
+- `models/`: acesso aos dados e operações SQL parametrizadas.
+- `routes/`: endpoints, validações e respostas HTTP.
+- `middleware/`: autenticação JWT.
+- `utils/`: funções auxiliares e regras de negócio.
+- `testes/`: testes automatizados e roteiro de requisições.
+- `docs/`: documentação acadêmica e de colaboração.
+
+## Autenticação
+
+As rotas de cadastro e login são públicas. As demais rotas documentadas exigem um JWT válido.
+
+Após realizar o login, envie o token no cabeçalho das requisições protegidas:
+
+```http
+Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN
+Content-Type: application/json
+```
+
+O token utiliza o algoritmo HS256 e possui validade de uma hora.
+
+O identificador do proprietário dos dados é obtido exclusivamente do token autenticado.
+
+## Endpoints
+
+### Autenticação e usuários
+
+| Método | Endpoint | Descrição |
+| --- | --- | --- |
+| POST | `/auth/cadastro` | Cadastrar usuário |
+| POST | `/auth/login` | Autenticar e gerar JWT |
+| GET | `/auth/me` | Consultar perfil autenticado |
+
+#### Cadastro
+
+Exemplo de corpo JSON:
 
 ```json
 {
@@ -87,19 +233,17 @@ Envie `POST /auth/cadastro` com `Content-Type: application/json`:
 }
 ```
 
-Os valores acima são apenas exemplos. Nome, e-mail, CPF e senha são obrigatórios. O CPF deve ter dígitos verificadores válidos; a senha deve ter ao menos oito caracteres, com letras e números. Para respeitar o limite do bcrypt, senhas acima de 72 bytes em UTF-8 são rejeitadas, em vez de serem truncadas. Nome aceita até 120 caracteres e e-mail até 160, conforme o schema.
+O cadastro valida os campos obrigatórios, o formato do e-mail, os dígitos verificadores do CPF e a senha.
 
-O cadastro remove espaços nas extremidades do nome e do e-mail, converte o e-mail para minúsculas e grava o CPF somente com dígitos. A senha é armazenada como hash bcrypt com custo 10 e nunca é devolvida pela API.
+A senha deve possuir pelo menos oito caracteres, incluindo letras e números, e não pode ultrapassar 72 bytes em UTF-8.
 
-Um cadastro válido retorna `201` com `id`, `nome` e `email`. Dados inválidos retornam `400` com `erro` e `campos`; e-mail ou CPF duplicado retorna `409`, identificando o campo. Erros inesperados retornam `500` com mensagem genérica.
+O e-mail e o CPF são normalizados antes da gravação. As restrições UNIQUE do banco impedem cadastros duplicados.
 
-Na mesma transação, são criadas nove categorias (duas de entrada e sete de saída) e a fonte/destino “Conta corrente”. Uma falha desfaz todas as inserções. O pool reserva uma conexão exclusiva para cada transação, liberando-a ao finalizar.
+As senhas são armazenadas com bcrypt, utilizando custo 10.
 
-Veja os exemplos executáveis em [testes/requisicoes.md](testes/requisicoes.md).
+O cadastro cria nove categorias padrão e uma conta corrente na mesma transação. Caso alguma operação falhe, todas são desfeitas.
 
-## Login
-
-Envie `POST /auth/login` com `Content-Type: application/json` e o e-mail e senha de um usuário cadastrado:
+#### Login
 
 ```json
 {
@@ -108,49 +252,20 @@ Envie `POST /auth/login` com `Content-Type: application/json` e o e-mail e senha
 }
 ```
 
-O e-mail é normalizado antes da consulta e a senha é conferida com `bcrypt.compare`. No sucesso, a resposta `200` contém `token` e `usuario` (somente `id`, `nome` e `email`). O JWT é assinado com `JWT_SECRET` e expira em uma hora; a senha e seu hash não aparecem na resposta nem no token.
+O login retorna o token JWT e os dados públicos do usuário.
 
-E-mail inexistente ou senha incorreta retornam o mesmo `401` com `erro: "E-mail ou senha inválidos."`. Campos ausentes ou com tipos incorretos retornam `400`. Falhas internas retornam `500` sem detalhes técnicos ao cliente. Configure `JWT_SECRET` antes de iniciar a aplicação: o middleware de proteção exige esse segredo durante a inicialização.
+Credenciais incorretas retornam HTTP 401, sem informar se o e-mail existe.
 
-## Perfil do usuário autenticado
+### Categorias
 
-Envie `GET /auth/me` com o token recebido no login:
+| Método | Endpoint | Descrição |
+| --- | --- | --- |
+| GET | `/categorias` | Listar categorias |
+| POST | `/categorias` | Criar categoria |
+| PUT | `/categorias/:id` | Atualizar categoria |
+| DELETE | `/categorias/:id` | Excluir categoria |
 
-```http
-Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN
-```
-
-O middleware de `middleware/auth.js`, seguindo o exemplo do roteiro, verifica a assinatura com `JWT_SECRET`, o algoritmo `HS256` e a validade do token. A rota usa `req.auth.id` para consultar o usuário no banco e retorna `200` com apenas `id`, `nome` e `email` atuais. IDs fornecidos na query não selecionam outro usuário.
-
-Token ausente, inválido ou expirado retorna `401` em JSON. Se o usuário do token não existir mais no banco, a rota retorna `404`.
-
-## Proteção dos recursos financeiros — Issue #6 em andamento
-
-Os caminhos `/categorias`, `/fontes-destinos`, `/lancamentos` e `/relatorios` passam pelo middleware JWT no `server.js`, em todos os métodos HTTP. Sem token válido, retornam `401` em JSON. Cadastro e login continuam públicos, e `/auth/me` mantém sua proteção individual.
-
-O CRUD de categorias está implementado: `GET /categorias`, `POST /categorias`, `PUT /categorias/:id` e `DELETE /categorias/:id`. Essas operações, a listagem de fontes e destinos e o relatório em `GET /relatorios/categorias` usam o proprietário do token. Os endpoints de lançamentos ainda não estão implementados.
-
-Nas Issues dos CRUDs, os respectivos Routers devem ser registrados **depois da proteção JWT e antes do tratador de 404**. Para concluir a Issue #6, será necessário aplicar e testar estas regras:
-
-- Obter o proprietário de `req.auth.id`, ignorando IDs de usuário enviados pelo cliente.
-- Filtrar listagens por `usuario_id` e consultas de registros por `id` e `usuario_id` juntos, com SQL parametrizado nas classes de `models/`.
-- Aplicar o filtro de proprietário também em alterações e exclusões, retornando `404` para registros inexistentes ou de outro usuário.
-- Antes de criar ou editar um lançamento, confirmar que a categoria e a fonte/destino pertencem ao mesmo usuário autenticado.
-- Testar as operações com dois usuários distintos, garantindo que nenhum consulte, altere ou exclua registros do outro.
-
-Esses pontos dependem das Issues #7 (categorias), #8 (fontes/destinos) e #9 (lançamentos). A Issue #6 deve permanecer em andamento até a implementação e validação do isolamento nesses recursos.
-
-## Listagem de categorias — Issue #7 em andamento
-
-Envie `GET /categorias` com `Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN`. A resposta `200` contém um array com `id`, `nome` e `tipo` das categorias do usuário autenticado. Sem categorias, retorna `[]`.
-
-O filtro `GET /categorias?tipo=entrada` ou `GET /categorias?tipo=saida` é opcional. Um valor informado diferente dessas opções retorna `400` com mensagem em `campos.tipo`.
-
-A rota usa exclusivamente `req.auth.id` como proprietário, ignorando IDs de usuário enviados na query. O model `Categoria.listar()` aplica `WHERE usuario_id = ?` e, quando necessário, `AND tipo = ?`, com parâmetros separados do SQL. Sem JWT válido, a resposta é `401`.
-
-## Criação de categorias — Issue #7 em andamento
-
-Envie `POST /categorias` com o token do login e `Content-Type: application/json`:
+Exemplo de criação:
 
 ```json
 {
@@ -159,119 +274,304 @@ Envie `POST /categorias` com o token do login e `Content-Type: application/json`
 }
 ```
 
-Nome é obrigatório e tem espaços das extremidades removidos. Tipo deve ser `entrada` ou `saida`. Dados inválidos retornam `400`; sucesso retorna `201` com `id`, `nome` e `tipo`.
+Tipos disponíveis:
 
-O proprietário é obtido de `req.auth.id`, ignorando IDs enviados no corpo. O MySQL impede nome repetido para o mesmo usuário e tipo, e a API responde `409` com mensagem em `campos.nome`. O mesmo nome pode existir para outro usuário ou para outro tipo.
+- `entrada`
+- `saida`
 
-## Atualização de categorias — Issue #7 em andamento
+A listagem aceita o filtro opcional `tipo`.
 
-Envie `PUT /categorias/:id` com JWT válido e um JSON contendo `nome` e `tipo`, seguindo as mesmas validações da criação. O ID da categoria vem da URL e o proprietário vem exclusivamente de `req.auth.id`.
+Categorias duplicadas para o mesmo usuário e tipo retornam HTTP 409.
 
-O model atualiza com `WHERE id = ? AND usuario_id = ?`. No sucesso, retorna `200` com `id`, `nome` e `tipo`, inclusive ao repetir os mesmos valores. Categoria inexistente ou pertencente a outro usuário retorna `404`, sem indicar a existência de dados de terceiros. Dados ou identificador inválidos retornam `400`, e nome duplicado para o mesmo usuário e tipo retorna `409`.
+Categorias com lançamentos vinculados não podem ser excluídas.
 
-## Exclusão de categorias
+### Fontes e destinos
 
-Envie `DELETE /categorias/:id` com JWT válido. O model executa `DELETE FROM categorias WHERE id = ? AND usuario_id = ?`, usando o proprietário do token. A exclusão bem-sucedida retorna `204` sem corpo.
+| Método | Endpoint | Descrição |
+| --- | --- | --- |
+| GET | `/fontes-destinos` | Listar fontes e destinos |
+| POST | `/fontes-destinos` | Criar fonte ou destino |
+| PUT | `/fontes-destinos/:id` | Atualizar fonte ou destino |
+| DELETE | `/fontes-destinos/:id` | Excluir fonte ou destino |
 
-ID inválido retorna `400`; categoria inexistente ou de outro usuário retorna `404`. A chave estrangeira de `lancamentos.categoria_id` impede excluir uma categoria com lançamentos vinculados. Nessa situação, a API retorna `409` com mensagem explicativa, preservando a categoria e os lançamentos.
+Tipos disponíveis:
 
-O CRUD da Issue #7 está implementado e validado. A conclusão da Issue no fluxo da equipe depende da revisão, integração por PR e validação em `develop`. O restante do isolamento da Issue #6 continua dependendo dos demais recursos financeiros.
+- `renda`
+- `conta`
+- `cartao_credito`
 
-## Listagem de fontes e destinos
+Exemplo de criação de cartão:
 
-Envie `GET /fontes-destinos` com `Authorization: Bearer TOKEN_RECEBIDO_NO_LOGIN`. A resposta `200` contém apenas os registros do usuário autenticado. Sem registros, a resposta é `[]`.
+```json
+{
+  "nome": "Cartão de exemplo",
+  "tipo": "cartao_credito",
+  "dia_fechamento": 10,
+  "dia_vencimento": 17,
+  "limite": 2000
+}
+```
 
-Use `?tipo=renda`, `?tipo=conta` ou `?tipo=cartao_credito` para filtrar. Um tipo inválido retorna `400`. Sem JWT válido, a resposta é `401`.
+A listagem aceita o filtro opcional `tipo`.
 
-## Criação de fontes e destinos
+Cartões exigem dias de fechamento e vencimento entre 1 e 31 e limite positivo.
 
-Envie `POST /fontes-destinos` com o JWT do login e um JSON como `{"nome":"Conta corrente","tipo":"conta"}`. Para `cartao_credito`, inclua `dia_fechamento` e `dia_vencimento` como inteiros de 1 a 31 e `limite` como valor numérico de pelo menos um centavo.
+Registros duplicados ou com lançamentos vinculados, quando aplicável, retornam HTTP 409.
 
-A criação retorna `201` com o registro criado. Dados inválidos retornam `400` e nome duplicado para o mesmo usuário retorna `409`, mesmo entre tipos diferentes.
+### Lançamentos
 
-## Atualização de fontes e destinos
+| Método | Endpoint | Descrição |
+| --- | --- | --- |
+| GET | `/lancamentos` | Listar movimentações |
+| GET | `/lancamentos/:id` | Consultar lançamento |
+| POST | `/lancamentos` | Criar lançamento |
+| PUT | `/lancamentos/:id` | Atualizar lançamento |
+| DELETE | `/lancamentos/:id` | Excluir lançamento |
 
-Envie `PUT /fontes-destinos/:id` com o JWT e o JSON completo, seguindo as regras da criação. Ao mudar o tipo de cartão para conta ou renda, os campos de cartão são gravados como `null`.
+Exemplo de criação:
 
-A atualização retorna `200` com os dados atualizados. Um registro inexistente ou de outro usuário retorna `404`. Dados inválidos retornam `400` e nome duplicado retorna `409`.
+```json
+{
+  "tipo": "saida",
+  "descricao": "Compra no supermercado",
+  "valor": 150.00,
+  "data": "2026-11-25",
+  "categoriaId": 3,
+  "fonteDestinoId": 1
+}
+```
 
-## Exclusão de fontes e destinos
+Os identificadores devem corresponder a registros pertencentes ao usuário autenticado.
 
-Envie `DELETE /fontes-destinos/:id` com o JWT. Se o registro pertencer ao usuário autenticado e não tiver lançamentos vinculados, a resposta é `204` sem corpo.
+O valor deve ser positivo e a categoria deve possuir o mesmo tipo do lançamento.
 
-Um ID inválido retorna `400`. Um registro inexistente ou de outro usuário retorna `404`. Se houver lançamentos vinculados ao registro do usuário, o banco impede a exclusão e a API retorna `409`.
+#### Filtros e paginação
 
-## Testes
+| Parâmetro | Descrição |
+| --- | --- |
+| `inicio` | Data inicial |
+| `fim` | Data final |
+| `tipo` | Entrada ou saída |
+| `categoriaId` | Identificador da categoria |
+| `fonteDestinoId` | Identificador da fonte ou destino |
+| `pagina` | Página solicitada |
+
+Exemplo:
+
+```http
+GET /lancamentos?inicio=2026-11-01&fim=2026-11-30&tipo=saida&pagina=1
+```
+
+A listagem possui paginação de 20 registros e resumo financeiro dos resultados filtrados. Na ausência de datas, considera o mês atual em UTC.
+
+#### Parcelamento
+
+Compras no cartão de crédito podem ser divididas em até 48 parcelas.
+
+Para criar uma compra parcelada, informe o campo `parcelas`:
+
+```json
+{
+  "tipo": "saida",
+  "descricao": "Compra parcelada",
+  "valor": 100.00,
+  "data": "2026-11-25",
+  "categoriaId": 3,
+  "fonteDestinoId": 2,
+  "parcelas": 3
+}
+```
+
+O parcelamento utiliza transações e preserva o valor total da compra, distribuindo eventuais diferenças de centavos.
+
+As parcelas são relacionadas por um identificador de grupo.
+
+A exclusão pode atingir uma parcela individual ou todo o grupo por meio do parâmetro `todasParcelas=true`.
+
+### Relatórios financeiros
+
+Todos os relatórios utilizam exclusivamente os dados do usuário autenticado.
+
+| Método | Endpoint | Descrição |
+| --- | --- | --- |
+| GET | `/relatorios/categorias` | Relatório por categoria |
+| GET | `/relatorios/fontes-destinos` | Relatório por fonte e destino |
+| GET | `/relatorios/faturas` | Previsão de faturas |
+
+#### Relatório por categoria
+
+```http
+GET /relatorios/categorias?inicio=2026-11-01&fim=2026-11-30
+```
+
+Apresenta:
+
+- Totais de entradas e saídas.
+- Valores agrupados por categoria.
+- Participação percentual de cada categoria.
+- Ordenação decrescente por valor.
+- Comparação com o período anterior de mesma duração.
+- Variação entre os períodos.
+
+As datas inicial e final são obrigatórias.
+
+#### Relatório por fonte e destino
+
+```http
+GET /relatorios/fontes-destinos?inicio=2026-11-01&fim=2026-11-30
+```
+
+Apresenta:
+
+- Entradas agrupadas por fonte.
+- Saídas agrupadas por destino.
+- Totais financeiros por agrupamento.
+- Saldos das contas.
+
+O cálculo de saldo por conta considera registros do tipo `conta`.
+
+As datas inicial e final são obrigatórias.
+
+#### Previsão de faturas
+
+```http
+GET /relatorios/faturas?meses=3
+```
+
+Apresenta:
+
+- Limite total do cartão.
+- Limite utilizado.
+- Limite disponível.
+- Datas de fechamento e vencimento.
+- Total de cada fatura.
+- Lançamentos e parcelas associados.
+
+O parâmetro `meses` aceita valores entre 1 e 12, com padrão 3.
+
+A previsão considera a fatura aberta e as seguintes. O limite utilizado inclui parcelas que vencem além da janela solicitada.
+
+Uma fatura fechada continua comprometendo o limite até o fim da data de vencimento em UTC.
+
+O limite disponível pode ser negativo quando os gastos ultrapassam o limite total.
+
+A aplicação não registra pagamentos de faturas. A liberação do limite por data é uma simplificação da regra de negócio e não confirma pagamento.
+
+## Códigos de status HTTP
+
+| Código | Significado | Utilização |
+| --- | --- | --- |
+| 200 | OK | Consultas e atualizações bem-sucedidas |
+| 201 | Created | Criação de recursos |
+| 204 | No Content | Exclusão bem-sucedida |
+| 400 | Bad Request | Dados ou parâmetros inválidos |
+| 401 | Unauthorized | Credenciais ou token inválidos |
+| 404 | Not Found | Recurso inexistente ou de outro usuário |
+| 409 | Conflict | Duplicidade ou conflito de integridade |
+| 500 | Internal Server Error | Falha interna inesperada |
+
+Os erros são retornados em JSON, sem exposição de consultas SQL, credenciais ou detalhes internos do banco.
+
+## Segurança
+
+A aplicação implementa:
+
+- Autenticação JWT com expiração.
+- Hash de senhas com bcrypt.
+- Credenciais configuradas por variáveis de ambiente.
+- Consultas SQL parametrizadas.
+- Isolamento dos dados pelo identificador do usuário autenticado.
+- Validação de dados no servidor.
+- Restrições de integridade no banco.
+- Transações com rollback em operações compostas.
+- Tratamento de erros sem exposição de informações internas.
+
+Recursos pertencentes a outros usuários retornam HTTP 404, evitando revelar sua existência.
+
+## Requisitos funcionais
+
+| Requisito | Descrição | Status |
+| --- | --- | --- |
+| RF1 | Cadastro de usuário | Implementado |
+| RF2 | Login | Implementado |
+| RF3 | Isolamento dos dados entre usuários | Implementado |
+| RF4 | CRUD de categorias | Implementado |
+| RF5 | CRUD de fontes e destinos | Implementado |
+| RF6 | CRUD de lançamentos | Implementado |
+| RF7 | Relatório por categoria | Implementado |
+| RF8 | Relatório por fonte e destino | Implementado |
+| RF9 | Previsão de faturas de cartão de crédito | Implementado |
+
+Os nove requisitos obrigatórios foram validados por testes automatizados, incluindo integração com MySQL real.
+
+## Testes automatizados
+
+Execute:
 
 ```bash
 npm test
 ```
 
-Os testes usam o executor nativo do Node.js e cobrem CPF, transações de cadastro, consultas de usuário, login e perfil protegido. Os testes HTTP usam bcrypt e JWT reais, com consultas ao banco simuladas, verificando respostas, assinatura, expiração e uso do ID do token. `auth-recursos.test.js` testa a aplicação exportada pelo próprio `server.js`, incluindo proteção dos caminhos financeiros, acesso público a cadastro/login e erros JSON. Não gravam dados no MySQL nem demonstram isolamento de CRUDs ainda inexistentes. No PowerShell, se a política local bloquear `npm.ps1`, use `npm.cmd test` e `npm.cmd run dev`.
+Os testes utilizam o executor nativo do Node.js e abrangem autenticação, validações, transações, isolamento de dados, operações CRUD, parcelamento e relatórios.
 
-Ao executar `node server.js` ou os scripts npm, a aplicação testa a conexão MySQL e inicia o servidor normalmente. Ao importar `server.js` nos testes, `require.main === module` é falso: o arquivo apenas exporta a aplicação Express, permitindo testá-la sem iniciar outra conexão com o banco.
+### Testes com MySQL real
 
-## Estrutura inicial
+Para executar também os testes de integração, utilize uma instância MySQL isolada e um usuário autorizado a criar schemas e triggers.
 
-```text
-api-controle-financeiro/
-├── database/
-│   ├── .gitkeep
-│   ├── connection.js
-│   └── schema.sql
-├── middleware/
-│   ├── .gitkeep
-│   └── auth.js
-├── models/
-│   ├── .gitkeep
-│   ├── Categoria.js
-│   └── Usuario.js
-├── routes/
-│   ├── .gitkeep
-│   ├── auth.js
-│   └── categorias.js
-├── utils/
-│   ├── .gitkeep
-│   └── cpf.js
-├── testes/
-│   ├── .gitkeep
-│   ├── auth-login.test.js
-│   ├── auth-perfil.test.js
-│   ├── auth-recursos.test.js
-│   ├── categoria.test.js
-│   ├── categorias-http.test.js
-│   ├── cpf.test.js
-│   ├── usuario-login.test.js
-│   ├── usuario.test.js
-│   └── requisicoes.md
-├── .env.example
-├── .gitignore
-├── package.json
-├── package-lock.json
-├── README.md
-└── server.js
+No PowerShell:
+
+```powershell
+$env:TESTE_MYSQL_REAL = "1"
+npm.cmd test
 ```
 
-Os arquivos `.gitkeep` preservam os diretórios iniciais. O SQL de usuários fica em `models/Usuario.js`, e o de categorias em `models/Categoria.js`. Os arquivos de `routes/` validam as entradas e montam as respostas. O middleware JWT protege os caminhos financeiros e a rota de perfil, mantendo cadastro e login públicos.
+No Linux ou macOS:
 
-## Previsão de faturas de cartão
+```bash
+TESTE_MYSQL_REAL=1 npm test
+```
 
-`GET /relatorios/faturas?meses=3` exige JWT e consulta os cartões do usuário autenticado.
+Configure as credenciais da instância de testes por meio das variáveis de ambiente correspondentes.
 
-A resposta contém `cartoes`, com os limites e as faturas de cada cartão. Cada fatura traz a referência do mês de vencimento (`AAAA-MM`), as datas de fechamento e vencimento, o total e os lançamentos com a indicação da parcela.
+Os testes de integração utilizam schemas temporários e não devem ser executados em bancos de produção.
 
-- `meses` tem padrão 3 e aceita de 1 a 12. Conta a fatura aberta e as seguintes, incluindo faturas vazias com total zero.
-- A previsão começa pela fatura aberta. Uma fatura fechada continua comprometendo o limite até o fim da data de vencimento em UTC. O limite utilizado inclui também as parcelas que vencem depois da janela solicitada.
-- `limiteDisponivel = limiteTotal - limiteUtilizado`. O resultado pode ser negativo para indicar o excedente. Com limite de R$ 1.000,00 e uso de R$ 1.200,00, o JSON retorna o número `-200`.
-- Os cálculos usam centavos inteiros. Na resposta, os campos monetários são números JSON, sujeitos ao limite de precisão de `Number` para valores acumulados extremos.
-- A liberação do limite após o vencimento é uma simplificação da regra de negócio. O sistema não registra o pagamento de faturas, portanto a liberação por data não confirma pagamento.
+### Resultado da validação
+
+Validação realizada em 25/11/2026, utilizando MySQL 8.4.9:
+
+| Execução | Total | Aprovados | Falhas | Ignorados |
+| --- | ---: | ---: | ---: | ---: |
+| Testes padrão | 95 | 93 | 0 | 2 |
+| Testes com MySQL real | 97 | 97 | 0 | 0 |
+
+## Demonstração da API
+
+O roteiro completo de requisições HTTP, incluindo dados de demonstração e resultados esperados, está disponível em:
+
+[testes/requisicoes.md](testes/requisicoes.md)
+
+O roteiro permite demonstrar cadastro, login, isolamento entre usuários, operações CRUD, parcelamento e relatórios financeiros.
+
+## Equipe e responsabilidades
+
+| Integrante | Responsabilidades |
+| --- | --- |
+| Miguel Simões | Estrutura inicial, modelagem do banco, autenticação, segurança, categorias, fontes e destinos. |
+| Daniel Kawata Hara | Lançamentos, parcelamento, filtros, paginação, previsão de faturas, seed e testes integrados. |
+| Yaron Buchler | Relatórios por categoria, relatórios por fontes e destinos, revisão e documentação final. |
 
 ## Fluxo de colaboração
 
-As funcionalidades são desenvolvidas em branches `feature/*`, com Pull Request para `develop` e aprovação de outro integrante. A branch `main` contém a versão estável.
+- `main`: versão estável do projeto.
+- `develop`: integração das funcionalidades.
+- `feature/*`: desenvolvimento de funcionalidades.
+- `docs/*`: alterações de documentação.
 
-## Documentação da equipe
+As alterações são integradas por Pull Requests e revisão dos integrantes da equipe.
 
-- [Instruções para agentes Codex](AGENTS.md)
-- [Guia de contribuição](docs/guia-contribuicao.md)
+## Documentação complementar
+
 - [Escopo oficial do projeto](docs/escopo-projeto.md)
+- [Guia de contribuição](docs/guia-contribuicao.md)
+- [Roteiro de requisições HTTP](testes/requisicoes.md)
+- [Instruções para agentes](AGENTS.md)
