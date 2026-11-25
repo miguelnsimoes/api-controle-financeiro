@@ -1,6 +1,21 @@
 const pool = require('../database/connection');
 
 class Relatorio {
+  async lancamentosDosCartoes(usuarioId, inicio) {
+    const [linhas] = await pool.promise().execute(
+      `SELECT fd.id AS cartao_id, fd.nome AS cartao_nome, fd.limite,
+              fd.dia_fechamento, fd.dia_vencimento,
+              l.id AS lancamento_id, l.descricao, l.valor, l.data, l.parcela_atual, l.total_parcelas
+       FROM fontes_destinos fd
+       LEFT JOIN lancamentos l ON l.fonte_destino_id = fd.id
+         AND l.usuario_id = fd.usuario_id AND l.tipo = 'saida' AND l.data >= ?
+       WHERE fd.usuario_id = ? AND fd.tipo = 'cartao_credito'
+       ORDER BY fd.id, l.data, l.id`,
+      [inicio, usuarioId],
+    );
+    return linhas;
+  }
+
   async totaisPorCategoria(usuarioId, inicio, fim) {
     const [linhas] = await pool.promise().execute(
       `SELECT c.id, c.nome, l.tipo, SUM(l.valor) AS total

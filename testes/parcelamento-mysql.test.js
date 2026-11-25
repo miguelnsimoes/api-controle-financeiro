@@ -176,7 +176,72 @@ test('lançamentos por HTTP com MySQL real', { skip: process.env.TESTE_MYSQL_REA
        assert.equal(Object.keys(erro.campos).length, 1);
      }
    });
-   console.log('MySQL '+version+': CRUD, JWT, isolamento, validacoes, 1/3/48 parcelas, UUID, datas, exclusoes e rollback confirmados.');
+   await t.test('prevê faturas e inclui parcelas fora da janela no cálculo do limite', async () => {
+     const [novosCartoes] = await db.query(
+       `INSERT INTO fontes_destinos (usuario_id, nome, tipo, dia_fechamento, dia_vencimento, limite)
+        VALUES (1, 'Sem uso', 'cartao_credito', 31, 5, 1000),
+               (1, 'Uso parcial', 'cartao_credito', 31, 5, 1000),
+               (1, 'Uso total', 'cartao_credito', 31, 5, 1000),
+               (1, 'Excedido', 'cartao_credito', 31, 5, 1000)`,
+     );
+     const primeiroId = novosCartoes.insertId;
+     const hoje = new Date().toISOString().slice(0, 10);
+     const criarCompra = (fonteDestinoId, valor, parcelas) => req('POST', '', 201, {
+       ...data, data: hoje, fonteDestinoId, valor, parcelas,
+     });
+     await criarCompra(primeiroId + 1, 0.1);
+     await criarCompra(primeiroId + 1, 0.2);
+     await criarCompra(primeiroId + 2, 1000);
+     const parcelas = await criarCompra(primeiroId + 3, 1200, 4);
+     await req('POST', '', 201, {
+       ...data, tipo: 'entrada', categoriaId: 3, data: hoje, fonteDestinoId: primeiroId, valor: 25,
+     });
+     await db.execute(
+       `INSERT INTO lancamentos (usuario_id, tipo, descricao, valor, data, categoria_id, fonte_destino_id)
+        VALUES (2, 'saida', 'Vínculo inconsistente de teste', 42, ?, 2, ?)`,
+       [hoje, primeiroId],
+     );
+
+     async function prever(query = '', dono = 1) {
+       const headers = {};
+       if (dono) headers.Authorization = 'Bearer ' + jwt.sign({ id: dono }, process.env.JWT_SECRET);
+       const resposta = await fetch('http://127.0.0.1:' + server.address().port + '/relatorios/faturas' + query, { headers });
+       return { status: resposta.status, corpo: await resposta.json() };
+     }
+
+     assert.equal((await prever('', 0)).status, 401);
+     for (const query of ['?meses=0', '?meses=13', '?meses=1.5', '?meses=1&meses=2', '?meses=']) {
+       const invalido = await prever(query);
+       assert.equal(invalido.status, 400);
+       assert.ok(invalido.corpo.campos.meses);
+     }
+     const resposta = await prever('?meses=1');
+     assert.equal(resposta.status, 200);
+     const cartoes = resposta.corpo.cartoes.filter(({ id }) => id >= primeiroId);
+     assert.equal(cartoes.length, 4);
+     assert.deepEqual(cartoes.map(({ limiteTotal, limiteUtilizado, limiteDisponivel }) =>
+       [limiteTotal, limiteUtilizado, limiteDisponivel]), [
+       [1000, 0, 1000], [1000, 0.3, 999.7], [1000, 1000, 0], [1000, 1200, -200],
+     ]);
+     assert.ok(cartoes.every(({ faturas }) => faturas.length === 1));
+     assert.deepEqual(cartoes[0].faturas[0].lancamentos, []);
+     assert.equal(cartoes[0].faturas[0].total, 0);
+     assert.equal(cartoes[1].faturas[0].total, 0.3);
+     assert.equal(cartoes[3].faturas[0].total, 300);
+     assert.deepEqual(cartoes[3].faturas[0].lancamentos.map(({ id, parcela }) => [id, parcela]), [
+       [parcelas[0].id, '1/4'],
+     ]);
+
+     const padrao = (await prever()).corpo.cartoes.find(({ id }) => id === primeiroId + 3);
+     assert.equal(padrao.faturas.length, 3);
+     assert.equal(padrao.limiteUtilizado, 1200);
+     const anual = (await prever('?meses=12')).corpo.cartoes.find(({ id }) => id === primeiroId + 3);
+     assert.equal(anual.faturas.length, 12);
+     assert.deepEqual(anual.faturas.map(({ total }) => total), [300, 300, 300, 300, ...Array(8).fill(0)]);
+     assert.equal(anual.limiteUtilizado, 1200);
+     assert.deepEqual((await prever('?meses=1&usuarioId=1', 2)).corpo.cartoes.map(({ id }) => id), [2]);
+   });
+   console.log('MySQL ' + version + ': CRUD, parcelamento, filtros e previsão de faturas verificados.');
   } finally {
     if (server) await new Promise(resolve=>server.close(resolve));
     await pool.promise().end();
