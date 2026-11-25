@@ -4,7 +4,6 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const Usuario = require('../models/Usuario');
-const auth = require('../routes/auth');
 
 const segredoTeste = 'segredo_ficticio_usado_somente_nos_testes';
 const segredoOriginal = process.env.JWT_SECRET;
@@ -15,6 +14,7 @@ let senhaHash;
 
 before(async () => {
   process.env.JWT_SECRET = segredoTeste;
+  const auth = require('../routes/auth');
   senhaHash = await bcrypt.hash('Exemplo123', 4);
   const app = express();
   app.use(express.json());
