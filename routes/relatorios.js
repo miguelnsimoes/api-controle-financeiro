@@ -1,5 +1,6 @@
 const express = require('express');
 const Relatorio = require('../models/Relatorio');
+const { inicioDosLancamentosPossiveis, montarPrevisao } = require('../utils/faturas');
 
 const router = express.Router();
 const DIA_MS = 24 * 60 * 60 * 1000;
@@ -183,6 +184,19 @@ router.get('/fontes-destinos', async (req, res, next) => {
   } catch (erro) {
     return next(erro);
   }
+});
+
+router.get('/faturas', async (req, res) => {
+  const { meses = '3' } = req.query;
+  if (typeof meses !== 'string' || !/^(?:[1-9]|1[0-2])$/.test(meses)) {
+    return res.status(400).json({
+      erro: 'Dados inválidos.',
+      campos: { meses: 'Informe um número inteiro entre 1 e 12.' },
+    });
+  }
+  const agora = new Date();
+  const linhas = await Relatorio.lancamentosDosCartoes(req.auth.id, inicioDosLancamentosPossiveis(agora));
+  return res.json({ cartoes: montarPrevisao(linhas, Number(meses), agora) });
 });
 
 module.exports = router;

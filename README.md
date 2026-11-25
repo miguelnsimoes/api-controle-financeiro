@@ -254,6 +254,18 @@ api-controle-financeiro/
 
 Os arquivos `.gitkeep` preservam os diretórios iniciais. O SQL de usuários fica em `models/Usuario.js`, e o de categorias em `models/Categoria.js`. Os arquivos de `routes/` validam as entradas e montam as respostas. O middleware JWT protege os caminhos financeiros e a rota de perfil, mantendo cadastro e login públicos.
 
+## Previsão de faturas de cartão
+
+`GET /relatorios/faturas?meses=3` exige JWT e consulta os cartões do usuário autenticado.
+
+A resposta contém `cartoes`, com os limites e as faturas de cada cartão. Cada fatura traz a referência do mês de vencimento (`AAAA-MM`), as datas de fechamento e vencimento, o total e os lançamentos com a indicação da parcela.
+
+- `meses` tem padrão 3 e aceita de 1 a 12. Conta a fatura aberta e as seguintes, incluindo faturas vazias com total zero.
+- A previsão começa pela fatura aberta. Uma fatura fechada continua comprometendo o limite até o fim da data de vencimento em UTC. O limite utilizado inclui também as parcelas que vencem depois da janela solicitada.
+- `limiteDisponivel = limiteTotal - limiteUtilizado`. O resultado pode ser negativo para indicar o excedente. Com limite de R$ 1.000,00 e uso de R$ 1.200,00, o JSON retorna o número `-200`.
+- Os cálculos usam centavos inteiros. Na resposta, os campos monetários são números JSON, sujeitos ao limite de precisão de `Number` para valores acumulados extremos.
+- A liberação do limite após o vencimento é uma simplificação da regra de negócio. O sistema não registra o pagamento de faturas, portanto a liberação por data não confirma pagamento.
+
 ## Fluxo de colaboração
 
 As funcionalidades são desenvolvidas em branches `feature/*`, com Pull Request para `develop` e aprovação de outro integrante. A branch `main` contém a versão estável.
