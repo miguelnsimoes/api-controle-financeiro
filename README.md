@@ -457,6 +457,69 @@ O limite disponível pode ser negativo quando os gastos ultrapassam o limite tot
 
 A aplicação não registra pagamentos de faturas. A liberação do limite por data é uma simplificação da regra de negócio e não confirma pagamento.
 
+
+### Saúde financeira — Desafio opcional (#17)
+
+| Método | Endpoint | Autenticação |
+| --- | --- | --- |
+| GET | `/saude-financeira` | JWT obrigatório |
+
+Retorna indicadores de saúde financeira, projeções mensais e dicas educativas calculadas exclusivamente a partir dos lançamentos do usuário autenticado.
+
+Não exige parâmetros de consulta.
+
+#### Indicadores e regras de cálculo
+
+- **Taxa de poupança:** (entradas - saídas) / entradas do mês atual.
+- **Comprometimento com cartões:** soma das faturas com vencimento nos próximos três meses dividida pela renda média mensal dos últimos três meses completos.
+- **Total de parcelas futuras:** soma das parcelas de cartão com vencimento igual ou posterior à data atual.
+- **Parcelas por mês:** agrupamento das parcelas futuras pelo mês de vencimento.
+
+Os indicadores proporcionais são retornados em formato decimal. Por exemplo, 0.30 representa 30%. Quando não há renda no período utilizado como denominador, o indicador retorna `null`.
+
+Os lançamentos de cartão são contabilizados pela data de vencimento calculada em `utils/faturas.js`. Os demais lançamentos utilizam a data registrada.
+
+O histórico consultado começa 52 meses antes do mês atual para contemplar compras parceladas antigas. As referências de datas utilizam UTC.
+
+#### Projeção financeira
+
+A projeção considera os próximos seis meses:
+
+- Entradas previstas: média das entradas dos últimos três meses completos.
+- Saídas previstas: média das despesas não parceladas dos últimos três meses completos, acrescida das parcelas conhecidas com vencimento no mês projetado.
+- Saldo previsto: entradas previstas menos saídas previstas.
+
+Meses sem movimentações são considerados com valor zero no cálculo das médias.
+
+As despesas parceladas são excluídas da média histórica de saídas para evitar dupla contabilização.
+
+O saldo previsto representa o resultado mensal estimado, e não o saldo bancário acumulado. A projeção não garante resultados futuros e não incorpora separadamente todos os lançamentos futuros não parcelados.
+
+#### Dicas educativas
+
+As dicas são geradas automaticamente conforme os indicadores:
+
+- Ausência de renda registrada.
+- Despesas superiores às entradas.
+- Taxa de poupança abaixo ou acima da referência de 10%.
+- Faturas dos próximos três meses superiores a 30% de uma renda média mensal.
+- Existência de parcelas futuras.
+- Meses com saldo previsto negativo.
+
+Os limites de 10% e 30% são referências educativas adotadas nesta implementação, não recomendações financeiras profissionais.
+
+#### Segurança e limitações
+
+A consulta utiliza parâmetros SQL e restringe os lançamentos ao ID do usuário autenticado pelo JWT.
+
+Não há compartilhamento de dados entre usuários.
+
+O sistema não controla a confirmação de pagamento das faturas. Portanto, as parcelas futuras são identificadas pela data de vencimento, e não pelo status de pagamento.
+
+Todas as respostas de sucesso incluem o aviso:
+
+> Informações educativas; não constituem recomendação financeira profissional.
+
 ## Códigos de status HTTP
 
 | Código | Significado | Utilização |

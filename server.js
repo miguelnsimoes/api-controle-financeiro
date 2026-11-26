@@ -16,6 +16,11 @@ app.use('/categorias', require('./routes/categorias'));
 app.use('/fontes-destinos', require('./routes/fontes-destinos'));
 app.use('/lancamentos', require('./routes/lancamentos'));
 app.use('/relatorios', require('./routes/relatorios'));
+app.use(
+  '/saude-financeira',
+  protegerRota,
+  require('./routes/saude-financeira')
+);
 
 app.use((req, res) => {
   return res.status(404).json({ erro: 'Rota não encontrada.' });
