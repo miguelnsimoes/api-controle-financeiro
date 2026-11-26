@@ -178,6 +178,45 @@ Api 401 GET '/relatorios/faturas?meses=3'
 
 Cada fatura devolve `referencia` no formato `AAAA-MM`, `fechamento`, `vencimento`, `total` e `lancamentos`. Para demonstrar a regra do fechamento de A, crie duas compras simples no cartão, uma no dia 14 e outra no dia 15 do mês corrente. A primeira fecha no dia 15 daquele mês e a segunda no mesmo dia do mês seguinte. Confira com a janela correspondente ou com os testes automatizados quando o ciclo anterior já tiver fechado.
 
+
+## Saúde financeira — Issue #17
+
+### Consultar indicadores e projeções
+
+```http
+GET /saude-financeira
+Authorization: Bearer <TOKEN>
+```
+
+Resultados esperados:
+
+- HTTP 200 com token válido.
+- HTTP 401 com token ausente, inválido ou expirado.
+- HTTP 500 em caso de falha interna, sem exposição de detalhes SQL.
+
+A resposta HTTP 200 contém:
+
+- `aviso`: aviso educativo obrigatório.
+- `mesReferencia`: mês atual no formato AAAA-MM.
+- `indicadores.taxaPoupanca`: proporção ou null.
+- `indicadores.comprometimentoCartoes`: proporção ou null.
+- `indicadores.totalParcelasFuturas`: valor monetário.
+- `indicadores.parcelasPorMes`: parcelas agrupadas por vencimento.
+- `projecao`: seis meses de estimativas financeiras.
+- `dicas`: mensagens educativas baseadas nos indicadores.
+
+### Verificação de isolamento
+
+Realizar a consulta com tokens de dois usuários distintos e verificar que cada resposta considera exclusivamente os lançamentos do proprietário do token.
+
+Parâmetros como `usuario_id` e `usuarioId` não alteram o proprietário da consulta.
+
+### Testes automatizados específicos
+
+```bash
+node --test testes/saude-financeira-model.test.js testes/saude-financeira.test.js
+```
+
 ## Suíte automatizada
 
 `npm test` roda os testes padrão sem precisar de segredo JWT externo ou banco. Para incluir MySQL real, aponte apenas para uma instância isolada com permissão para criar schemas e triggers. Exemplo em PowerShell:

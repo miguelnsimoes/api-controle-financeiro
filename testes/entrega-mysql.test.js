@@ -180,4 +180,77 @@ test('RF1 a RF9 pelo HTTP com schema e seed em MySQL isolado', {
   await pedir(400, 'GET', '/relatorios/categorias?inicio=2026-02-30', a.token);
   await pedir(400, 'GET', '/relatorios/fontes-destinos', a.token);
   await pedir(400, 'GET', '/relatorios/faturas?meses=13', a.token);
+
+  // Issue #17 - Saúde financeira com MySQL real
+  await t.test('saude financeira com isolamento entre usuarios', async () => {
+    await pedir(401, 'GET', '/saude-financeira');
+    await pedir(401, 'GET', '/saude-financeira', 'invalido');
+
+    const saudeA = await pedir(
+      200, 'GET', '/saude-financeira', a.token
+    );
+
+    const saudeB = await pedir(
+      200, 'GET', '/saude-financeira', b.token
+    );
+
+    for (const saude of [saudeA, saudeB]) {
+      assert.ok(Object.keys(saude.indicadores).length >= 3);
+      assert.equal(saude.projecao.length, 6);
+      assert.ok(saude.dicas.length > 0);
+
+      assert.equal(
+        saude.aviso,
+        'Informações educativas; não constituem recomendação financeira profissional.'
+      );
+
+      for (const mes of saude.projecao) {
+        assert.equal(typeof mes.entradas, 'number');
+        assert.equal(typeof mes.saidas, 'number');
+        assert.equal(typeof mes.saldoPrevisto, 'number');
+      }
+    }
+
+    assert.notDeepEqual(saudeA.indicadores, saudeB.indicadores);
+
+    const tentativaA = await pedir(
+      200,
+      'GET',
+      '/saude-financeira?usuario_id=' + b.usuario.id,
+      a.token
+    );
+
+    const tentativaB = await pedir(
+      200,
+      'GET',
+      '/saude-financeira?usuario_id=' + a.usuario.id,
+      b.token
+    );
+
+    assert.deepEqual(tentativaA, saudeA);
+    assert.deepEqual(tentativaB, saudeB);
+
+    const loginC = await pedir(
+      200,
+      'POST',
+      '/auth/login',
+      null,
+      { email: cadastro.email, senha }
+    );
+
+    const saudeC = await pedir(
+      200, 'GET', '/saude-financeira', loginC.token
+    );
+
+    assert.equal(saudeC.indicadores.taxaPoupanca, null);
+    assert.equal(saudeC.indicadores.comprometimentoCartoes, null);
+    assert.equal(saudeC.indicadores.totalParcelasFuturas, 0);
+
+    assert.ok(saudeC.projecao.every(mes =>
+      mes.entradas === 0 &&
+      mes.saidas === 0 &&
+      mes.saldoPrevisto === 0
+    ));
+  });
+
 });
